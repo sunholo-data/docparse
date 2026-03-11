@@ -52,21 +52,29 @@ Old designs that have been superseded or abandoned.
 - [Design Doc](planned/v0_2_0/v0_2_0_pdf_pipeline.md)
 - [Ollama Prompting Design](planned/v0_2_0/ollama_model_aware_prompting.md)
 
-### v0.3.0 — Parser Coverage Expansion
+### v0.3.0 — Parser Coverage & Format Expansion
 - PPTX speaker notes extraction
 - Real footnote/endnote test content
 - Insert/delete track changes test coverage
 - Nested list support
 - Metadata completeness (page count, custom properties)
 - XLSX chart detection
-- Target: 24+ golden benchmark files
-- [Design Doc](planned/v0_3_0/v0_3_0_parser_coverage.md)
+- **New AILANG parsers**: CSV, Markdown, HTML (zero Python dependencies)
+- **Expanded benchmark corpus**: 40+ files from open-source test suites
+- **Benchmark eval migration**: Move Python eval logic to AILANG
+- Target: 40+ golden benchmark files across 6+ formats
+- [Parser Coverage](planned/v0_3_0/v0_3_0_parser_coverage.md)
+- [Format Expansion](planned/v0_3_0/format_expansion.md)
+- [AILANG Benchmark Eval](planned/v0_3_0/ailang_benchmark_eval.md)
 
-### v0.4.0 — Go Binary Compilation
+### v0.4.0 — Go Binary & Strategic Formats
 - Compile to native Go binary via `ailang compile --emit-go`
 - Implement effect handlers in Go (IO, FS, AI, Env)
 - Replace bash wrapper with compiled binary
-- Target: 10-100x faster Office parsing, single binary distribution
+- **AILANG parsers for ODT/ODP/ODS** (OpenDocument — strategic gap, nobody does this natively)
+- **EPUB parser** (ZIP+XHTML, reuses html_parser + zip_extract)
+- **RTF parser** (token-based, medium complexity)
+- Target: 10-100x faster Office parsing, single binary distribution, 9+ format support
 - [Design Doc](planned/v0_4_0/v0_4_0_go_binary.md)
 
 ### v0.5.0 — Ecosystem & Competitor Benchmarks
