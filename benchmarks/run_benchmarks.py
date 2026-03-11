@@ -36,12 +36,35 @@ def run_pdf(ai_backend: str = "gemini", json_output: bool = False):
     subprocess.run(cmd, cwd=str(REPO_DIR))
 
 
-def run_competitors(json_output: bool = False):
+def run_competitors(competitor: str | None = None, json_output: bool = False):
     """Run competitor comparison."""
-    print("Competitor comparison not yet implemented.")
-    print("Available adapters:")
-    for p in sorted((REPO_DIR / "benchmarks" / "competitors").glob("*.py")):
-        print(f"  - {p.name}")
+    competitors_dir = REPO_DIR / "benchmarks" / "competitors"
+    adapters = {
+        "unstructured": competitors_dir / "run_unstructured.py",
+        "docling": competitors_dir / "run_docling.py",
+        "llamaparse": competitors_dir / "run_llamaparse.py",
+    }
+
+    if competitor and competitor in adapters:
+        targets = {competitor: adapters[competitor]}
+    elif competitor:
+        print(f"Unknown competitor: {competitor}")
+        print(f"Available: {', '.join(adapters.keys())}")
+        return
+    else:
+        targets = adapters
+
+    for name, script in targets.items():
+        if not script.exists():
+            print(f"  {name}: adapter not found at {script}")
+            continue
+        print(f"\n{'='*60}")
+        print(f"Running {name} comparison...")
+        print(f"{'='*60}\n")
+        cmd = ["uv", "run", str(script)]
+        if json_output:
+            cmd.append("--json")
+        subprocess.run(cmd, cwd=str(REPO_DIR))
 
 
 def main():
@@ -50,14 +73,15 @@ def main():
                         help="Benchmark suite to run (default: office)")
     parser.add_argument("--ai", default="gemini",
                         help="AI backend for PDF benchmark (default: gemini)")
-    parser.add_argument("--competitors", action="store_true",
-                        help="Run competitor comparison")
+    parser.add_argument("--competitors", nargs="?", const="all", default=None,
+                        help="Run competitor comparison (optionally specify: unstructured, docling, llamaparse)")
     parser.add_argument("--json", action="store_true",
                         help="JSON output")
     args = parser.parse_args()
 
-    if args.competitors:
-        run_competitors(args.json)
+    if args.competitors is not None:
+        comp = None if args.competitors == "all" else args.competitors
+        run_competitors(comp, args.json)
         return
 
     if args.suite in ("office", "all"):
