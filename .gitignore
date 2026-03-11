@@ -1,0 +1,13 @@
+# AILANG output
+docparse/data/output.json
+docparse/data/output.md
+docparse/data/output_summary.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+uv.lock
+
+# OS
+.DS_Store
