@@ -77,13 +77,13 @@ GOOGLE_API_KEY="" ailang run --entry main --caps IO,FS,Env,AI \
 
 ```bash
 # Office structural benchmark (no API, instant — our moat)
-python benchmarks/run_benchmarks.py --suite office
+uv run benchmarks/run_benchmarks.py --suite office
 
 # PDF benchmark (needs AI backend) — NOT YET IMPLEMENTED
-python benchmarks/run_benchmarks.py --suite pdf --ai gemini
+uv run benchmarks/run_benchmarks.py --suite pdf --ai gemini
 
 # Competitor comparison — NOT YET IMPLEMENTED
-python benchmarks/run_benchmarks.py --competitors
+uv run benchmarks/run_benchmarks.py --competitors
 
 # Regenerate golden outputs after changing parser code
 bash benchmarks/generate_golden.sh

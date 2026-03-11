@@ -6,7 +6,7 @@ to score both tools against the same ground truth on Unstructured's own sample d
 
 Usage:
     cd benchmarks/docparse_vs_unstructured
-    uv run python run_score_eval.py
+    uv run run_score_eval.py
 """
 
 import json

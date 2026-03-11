@@ -2,16 +2,15 @@
 """DocParse Benchmark Runner.
 
 Usage:
-    python benchmarks/run_benchmarks.py --suite office     # Structural (no API, instant)
-    python benchmarks/run_benchmarks.py --suite pdf         # PDF extraction (needs AI)
-    python benchmarks/run_benchmarks.py --suite all         # Everything
-    python benchmarks/run_benchmarks.py --competitors       # Compare to competitors
-    python benchmarks/run_benchmarks.py --json              # JSON output
+    uv run benchmarks/run_benchmarks.py --suite office     # Structural (no API, instant)
+    uv run benchmarks/run_benchmarks.py --suite pdf         # PDF extraction (needs AI)
+    uv run benchmarks/run_benchmarks.py --suite all         # Everything
+    uv run benchmarks/run_benchmarks.py --competitors       # Compare to competitors
+    uv run benchmarks/run_benchmarks.py --json              # JSON output
 """
 
 import argparse
 import subprocess
-import sys
 from pathlib import Path
 
 REPO_DIR = Path(__file__).parent.parent
@@ -19,7 +18,7 @@ REPO_DIR = Path(__file__).parent.parent
 
 def run_office(json_output: bool = False):
     """Run Office structural benchmark."""
-    cmd = [sys.executable, str(REPO_DIR / "benchmarks" / "office" / "eval_office.py")]
+    cmd = ["uv", "run", str(REPO_DIR / "benchmarks" / "office" / "eval_office.py")]
     if json_output:
         cmd.append("--json")
     subprocess.run(cmd, cwd=str(REPO_DIR))
@@ -31,7 +30,7 @@ def run_pdf(ai_backend: str = "gemini", json_output: bool = False):
     if not eval_script.exists():
         print("PDF benchmark not yet implemented. Run --suite office first.")
         return
-    cmd = [sys.executable, str(eval_script), "--ai", ai_backend]
+    cmd = ["uv", "run", str(eval_script), "--ai", ai_backend]
     if json_output:
         cmd.append("--json")
     subprocess.run(cmd, cwd=str(REPO_DIR))

@@ -2,13 +2,13 @@
 """DocParse Benchmark: AILANG DocParse vs Python Unstructured.
 
 Usage:
-    uv run python run_benchmark.py                          # All files, 3 iterations
-    uv run python run_benchmark.py --format docx             # DOCX only
-    uv run python run_benchmark.py --format pdf              # PDF only
-    uv run python run_benchmark.py --iterations 5            # 5 timed iterations
-    uv run python run_benchmark.py --describe                # With AI image descriptions
-    uv run python run_benchmark.py --files sample.docx       # Single file
-    uv run python run_benchmark.py --pdf-strategy hi_res     # Unstructured hi_res for PDF
+    uv run run_benchmark.py                          # All files, 3 iterations
+    uv run run_benchmark.py --format docx             # DOCX only
+    uv run run_benchmark.py --format pdf              # PDF only
+    uv run run_benchmark.py --iterations 5            # 5 timed iterations
+    uv run run_benchmark.py --describe                # With AI image descriptions
+    uv run run_benchmark.py --files sample.docx       # Single file
+    uv run run_benchmark.py --pdf-strategy hi_res     # Unstructured hi_res for PDF
 """
 
 from __future__ import annotations

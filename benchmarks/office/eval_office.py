@@ -7,9 +7,9 @@ merged cells, text boxes, speaker notes.
 No API calls needed. Runs entirely locally, instantly.
 
 Usage:
-    python benchmarks/office/eval_office.py                  # full report
-    python benchmarks/office/eval_office.py --json           # JSON output
-    python benchmarks/office/eval_office.py --file tables.docx  # single file
+    uv run benchmarks/office/eval_office.py                  # full report
+    uv run benchmarks/office/eval_office.py --json           # JSON output
+    uv run benchmarks/office/eval_office.py --file tables.docx  # single file
 """
 
 from __future__ import annotations

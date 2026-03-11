@@ -59,7 +59,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: uv run python parse_unstructured.py <file>")
+        print("Usage: uv run parse_unstructured.py <file>")
         sys.exit(1)
 
     path = Path(sys.argv[1])
