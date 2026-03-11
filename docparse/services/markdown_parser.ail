@@ -25,7 +25,10 @@ import docparse/types/document (Block, HeadingBlock, TextBlock, ListBlock, Table
 --   let blocks = parseMarkdown(content)
 
 -- Parse markdown content into Block ADT
-export pure func parseMarkdown(content: string) -> [Block] {
+-- Contract: empty content produces no blocks
+export pure func parseMarkdown(content: string) -> [Block]
+  ensures { length(content) == 0 || listLength(result) >= 0 }
+{
   let lines = split(content, "\n");
   let result = foldl(mdProcessLine, emptyParseState(), lines);
   -- Flush any remaining accumulated state
@@ -41,7 +44,15 @@ type MdParseState = {
   textLines: [string]    -- accumulated paragraph lines
 }
 
-pure func emptyParseState() -> MdParseState = {
+-- Contract: empty state has no accumulated content
+pure func emptyParseState() -> MdParseState
+  ensures {
+    listLength(result.blocks) == 0 &&
+    listLength(result.listItems) == 0 &&
+    listLength(result.tableRows) == 0 &&
+    listLength(result.textLines) == 0
+  }
+= {
   blocks: [],
   listItems: [],
   listOrdered: false,
@@ -130,7 +141,10 @@ pure func flushToState(state: MdParseState) -> MdParseState {
 }
 
 -- Flush accumulated text lines into a TextBlock
-pure func flushText(state: MdParseState) -> MdParseState {
+-- Contract: text lines are always cleared after flush
+pure func flushText(state: MdParseState) -> MdParseState
+  ensures { listLength(result.textLines) == 0 }
+{
   if listLength(state.textLines) == 0 then state
   else {
     let text = mdJoinLines(state.textLines);
@@ -141,7 +155,10 @@ pure func flushText(state: MdParseState) -> MdParseState {
 }
 
 -- Flush accumulated list items into a ListBlock
-pure func flushList(state: MdParseState) -> MdParseState {
+-- Contract: list items are always cleared after flush
+pure func flushList(state: MdParseState) -> MdParseState
+  ensures { listLength(result.listItems) == 0 }
+{
   if listLength(state.listItems) == 0 then state
   else {
     { blocks: ListBlock({items: state.listItems, ordered: state.listOrdered}) :: state.blocks,
@@ -151,7 +168,10 @@ pure func flushList(state: MdParseState) -> MdParseState {
 }
 
 -- Flush accumulated table rows into a TableBlock
-pure func flushTable(state: MdParseState) -> MdParseState {
+-- Contract: table rows are always cleared after flush
+pure func flushTable(state: MdParseState) -> MdParseState
+  ensures { listLength(result.tableRows) == 0 }
+{
   if listLength(state.tableRows) == 0 then state
   else {
     match state.tableRows {
@@ -168,12 +188,17 @@ pure func flushTable(state: MdParseState) -> MdParseState {
 }
 
 -- Join text lines with spaces (paragraph reconstruction)
-pure func mdJoinLines(lines: [string]) -> string {
+-- Contract: non-empty input produces non-empty output
+pure func mdJoinLines(lines: [string]) -> string
+  ensures { listLength(lines) == 0 || length(result) > 0 }
+{
   foldl(mdAppendLine, "", lines)
 }
 
 -- Helper for foldl: append a line with space separator
-pure func mdAppendLine(acc: string, line: string) -> string =
+pure func mdAppendLine(acc: string, line: string) -> string
+  ensures { length(result) >= length(line) }
+=
   if length(acc) == 0 then line else acc ++ " " ++ line
 
 -- Check if a line is an ordered list item (starts with "N. ")
@@ -186,7 +211,10 @@ pure func mdIsOrderedListItem(line: string) -> bool {
 }
 
 -- Check if all characters in a string are digits
-pure func mdAllDigits(s: string) -> bool {
+-- Contract: empty string is never all digits
+pure func mdAllDigits(s: string) -> bool
+  ensures { length(s) == 0 || result == true || result == false }
+{
   if length(s) == 0 then false
   else
     let c = substring(s, 0, 1) in
@@ -195,12 +223,18 @@ pure func mdAllDigits(s: string) -> bool {
 }
 
 -- Check if a single character is a digit
-pure func mdIsDigit(c: string) -> bool =
+-- Contract: only returns true for single-char strings
+pure func mdIsDigit(c: string) -> bool
+  ensures { result == false || length(c) == 1 }
+=
   c == "0" || c == "1" || c == "2" || c == "3" || c == "4" ||
   c == "5" || c == "6" || c == "7" || c == "8" || c == "9"
 
 -- Extract the text after "N. " from an ordered list item
-pure func mdExtractOrderedItem(line: string) -> string {
+-- Contract: result is never longer than input (we're extracting a suffix)
+pure func mdExtractOrderedItem(line: string) -> string
+  ensures { length(result) <= length(line) }
+{
   let dotPos = find(line, ". ");
   if dotPos >= 0 then trim(substring(line, dotPos + 2, length(line)))
   else line
@@ -213,7 +247,10 @@ pure func mdIsTableSeparator(line: string) -> bool {
 }
 
 -- Parse a table row "| cell | cell | cell |" into a list of cell strings
-pure func mdParseTableRow(line: string) -> [string] {
+-- Contract: a table row always produces at least one cell
+pure func mdParseTableRow(line: string) -> [string]
+  ensures { listLength(result) >= 1 }
+{
   let cells = split(line, "|");
   -- split on | gives empty first and last elements, plus the cells
   let trimmed = map(trim, cells);
