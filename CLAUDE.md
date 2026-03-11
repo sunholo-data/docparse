@@ -79,8 +79,8 @@ GOOGLE_API_KEY="" ailang run --entry main --caps IO,FS,Env,AI \
 # Office structural benchmark (no API, instant — our moat)
 uv run benchmarks/run_benchmarks.py --suite office
 
-# PDF benchmark (needs AI backend, ~90% on gemini-2.0-flash)
-uv run benchmarks/run_benchmarks.py --suite pdf --ai gemini-2.0-flash
+# PDF benchmark (needs AI backend)
+uv run benchmarks/run_benchmarks.py --suite pdf --ai gemini-2.5-flash
 
 # Competitor comparison (requires optional deps: uv pip install -e '.[competitors]')
 uv run benchmarks/run_benchmarks.py --competitors              # all competitors
