@@ -12,7 +12,7 @@ import docparse/services/zip_extract (readDocxContent, readCoreProperties, listO
 import docparse/services/docx_parser (parseDocx, parseDocxMetadata, parseDocxImages, parseDocxHeaders, parseDocxFooters, parseDocxFootnotes, parseDocxEndnotes, parseDocxComments)
 import docparse/services/pptx_parser (parsePptx, parsePptxMetadata, parsePptxImages)
 import docparse/services/xlsx_parser (parseXlsx, parseXlsxMetadata)
-import docparse/services/direct_ai_parser (parsePdf, parseImage, parseAudio, parseVideo, parsePdfMetadata)
+import docparse/services/direct_ai_parser (parsePdf, parseDocumentImage, parseImage, parseAudio, parseVideo, parsePdfMetadata)
 import docparse/services/layout_ai (describeImages, enhanceBlocks, inferTableStructure, cleanExtractedText)
 import docparse/services/output_formatter (formatResult, printSummary, printBlocks, renderMarkdown)
 import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag)
@@ -355,15 +355,24 @@ func parsePdfDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI} 
   writeOutputs(doc, result, doSummarize)
 }
 
--- Parse an image file (AI-powered description)
+-- Parse an image file (AI-powered document extraction)
+-- Extracts structured content (headings, text, tables) from document page images.
+-- Falls back to image description if no document content is found.
 func parseImageDocument(filepath: string, ext: string, doSummarize: bool) -> () ! {IO, FS, AI} {
-  println("--- Parsing Image (AI) ---");
+  println("--- Parsing Image (AI Document Extraction) ---");
   println("");
 
   let mime = imageMimeType(ext);
-  println("Describing image via AI...");
-  let blocks = parseImage(filepath, mime);
-  println("Generated " ++ show(countBlocks(blocks)) ++ " content blocks.");
+  println("Extracting document content from image via AI...");
+  let blocks = parseDocumentImage(filepath, mime);
+  let finalBlocks = match blocks {
+    [] => {
+      println("No document content found, falling back to image description...");
+      parseImage(filepath, mime)
+    },
+    _ => blocks
+  };
+  println("Generated " ++ show(countBlocks(finalBlocks)) ++ " content blocks.");
   println("");
 
   -- Build result
@@ -371,7 +380,7 @@ func parseImageDocument(filepath: string, ext: string, doSummarize: bool) -> () 
     format: ext,
     filename: filepath,
     metadata: emptyMetadata(),
-    blocks: blocks
+    blocks: finalBlocks
   };
 
   let result = {
@@ -384,7 +393,7 @@ func parseImageDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   printSummary(doc);
   println("");
   println("--- Content Blocks ---");
-  printBlocks(blocks);
+  printBlocks(finalBlocks);
   println("");
 
   -- Write outputs

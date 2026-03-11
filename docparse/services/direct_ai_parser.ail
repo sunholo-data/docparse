@@ -141,7 +141,47 @@ func parsePdfOnePage(base64Data: string, filepath: string, page: int, singlePage
   parseBlocksFromJson(response)
 }
 
--- Parse an image file using AI vision
+-- Parse an image of a document page using AI — extracts structured content (text, headings, tables)
+-- Same extraction pipeline as PDF but for image inputs (JPG, PNG, etc.)
+-- Use this for document page images (e.g., scanned pages, screenshots of documents)
+export func parseDocumentImage(filepath: string, mime: string) -> [Block] ! {FS, AI} {
+  match readFileBytes(filepath) {
+    Err(_) => [],
+    Ok(base64Data) =>
+      if length(base64Data) == 0 then []
+      else {
+        let request = encode(jo([
+          kv("mode", js("multimodal")),
+          kv("mimeType", js(mime)),
+          kv("data", js(base64Data)),
+          kv("fileName", js(filepath)),
+          kv("prompt", js(
+            "Extract ALL text content from this document page image. " ++
+            "Return a JSON array of blocks. " ++
+            "Block types: {\"type\":\"heading\",\"text\":\"...\",\"level\":N}, " ++
+            "{\"type\":\"text\",\"text\":\"...\"}, " ++
+            "{\"type\":\"table\",\"headers\":[...],\"rows\":[[...]]}, " ++
+            "{\"type\":\"list\",\"items\":[\"full item text here\",...],\"ordered\":bool}. " ++
+            "CRITICAL RULES: " ++
+            "1. Create a SEPARATE text block for EACH paragraph or visual text section. Do NOT merge paragraphs. " ++
+            "2. Include the COMPLETE text of every list item and paragraph — do NOT omit or truncate. " ++
+            "3. Use heading blocks for titles, section headers, and any text that serves as a header (with appropriate level 1-6). " ++
+            "4. For tables, include ALL rows and ALL cell content. " ++
+            "For tables with multi-row headers, use separate header rows. " ++
+            "5. Preserve the document's reading order. " ++
+            "6. For formulas, include LaTeX notation where possible (e.g. $x^2$). " ++
+            "Use compact JSON. Return ONLY the JSON array." ++
+            " If the page has no text content, return []."
+          ))
+        ]));
+        let response = callJsonSimple(request);
+        parseBlocksFromJson(response)
+      }
+  }
+}
+
+-- Parse an image file using AI vision (describes the image, does NOT extract document content)
+-- Use parseDocumentImage instead if the image is a document page
 export func parseImage(filepath: string, mime: string) -> [Block] ! {FS, AI} {
   match readFileBytes(filepath) {
     Err(_) => [],
