@@ -19,6 +19,7 @@ import std/option (Some, None)
 -- "markdown"   = Markdown (structured text → Block ADT)
 -- "html"       = HTML/XHTML (XML-based structure parsing)
 -- "epub"       = EPUB ebooks (ZIP of XHTML)
+-- "zip-odf"    = ODT, ODP, ODS (ZIP archives with ODF XML)
 -- "text"       = Plain text, XML, etc
 -- "unknown"    = Unrecognized format
 
@@ -27,7 +28,7 @@ export pure func detectFormat(ext: string) -> string
     result == "zip-office" || result == "pdf" || result == "image" ||
     result == "audio" || result == "video" || result == "csv" ||
     result == "markdown" || result == "html" || result == "epub" ||
-    result == "text" || result == "unknown"
+    result == "zip-odf" || result == "text" || result == "unknown"
   }
   tests [
     ("docx", "zip-office"),
@@ -51,6 +52,9 @@ export pure func detectFormat(ext: string) -> string
     ("htm", "html"),
     ("xhtml", "html"),
     ("epub", "epub"),
+    ("odt", "zip-odf"),
+    ("odp", "zip-odf"),
+    ("ods", "zip-odf"),
     ("txt", "text"),
     ("xml", "text"),
     ("foo", "unknown")
@@ -69,6 +73,7 @@ export pure func detectFormat(ext: string) -> string
   else if ext == "md" || ext == "markdown" then "markdown"
   else if ext == "html" || ext == "htm" || ext == "xhtml" then "html"
   else if ext == "epub" then "epub"
+  else if ext == "odt" || ext == "odp" || ext == "ods" then "zip-odf"
   else if ext == "txt" || ext == "xml" || ext == "json" then "text"
   else "unknown"
 }
@@ -122,11 +127,12 @@ export pure func needsAI(format: string) -> bool
     ("markdown", false),
     ("html", false),
     ("epub", false),
+    ("zip-odf", false),
     ("text", false),
     ("unknown", true)
   ]
 {
-  if format == "zip-office" || format == "text" || format == "csv" || format == "markdown" || format == "html" || format == "epub" then false
+  if format == "zip-office" || format == "text" || format == "csv" || format == "markdown" || format == "html" || format == "epub" || format == "zip-odf" then false
   else true
 }
 
@@ -143,6 +149,7 @@ export pure func strategyDescription(format: string) -> string
     ("markdown", "Markdown structure parsing (pure AILANG)"),
     ("html", "XML-based HTML structure parsing (pure AILANG)"),
     ("epub", "ZIP extraction + XHTML parsing (pure AILANG)"),
+    ("zip-odf", "ZIP extraction + ODF XML parsing (pure AILANG)"),
     ("text", "Direct text reading"),
     ("unknown", "AI multimodal extraction (best effort)")
   ]
@@ -156,6 +163,7 @@ export pure func strategyDescription(format: string) -> string
   else if format == "markdown" then "Markdown structure parsing (pure AILANG)"
   else if format == "html" then "XML-based HTML structure parsing (pure AILANG)"
   else if format == "epub" then "ZIP extraction + XHTML parsing (pure AILANG)"
+  else if format == "zip-odf" then "ZIP extraction + ODF XML parsing (pure AILANG)"
   else if format == "text" then "Direct text reading"
   else "AI multimodal extraction (best effort)"
 }
