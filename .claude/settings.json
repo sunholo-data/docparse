@@ -6,7 +6,8 @@
       "Bash(ailang verify *)",
       "Bash(ailang docs *)",
       "Bash(uv run *)",
-      "Bash(bash benchmarks/*)"
+      "Bash(bash benchmarks/*)",
+      "WebFetch(domain:sunholo.com)"
     ]
   }
 }
