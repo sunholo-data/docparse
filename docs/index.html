@@ -767,6 +767,141 @@ body {
   .dp-demos-grid { grid-template-columns: 1fr; }
 }
 
+/* ---- Output Examples (tabbed) ---- */
+.dp-output-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
+}
+.dp-output-tab {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+  letter-spacing: 0.2px;
+}
+.dp-output-tab:hover {
+  color: var(--text-secondary);
+  background: rgba(37, 99, 235, 0.04);
+}
+.dp-output-tab.active {
+  color: var(--dp-blue);
+  background: var(--bg-code);
+  border-color: var(--dp-blue-border);
+  font-weight: 600;
+}
+.dp-output-panel {
+  display: none;
+  background: var(--bg-code);
+  border: 1px solid var(--dp-blue-border);
+  border-radius: 0 var(--radius) var(--radius) var(--radius);
+  padding: 0;
+  overflow: hidden;
+}
+.dp-output-panel.active { display: block; }
+.dp-output-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(37, 99, 235, 0.1);
+  background: rgba(37, 99, 235, 0.03);
+}
+.dp-output-file {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dp-blue);
+}
+.dp-output-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.dp-output-badge--exclusive {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--dp-blue);
+}
+.dp-output-badge--structural {
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
+}
+.dp-output-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.dp-output-json {
+  padding: 20px 24px;
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(37, 99, 235, 0.2) transparent;
+}
+.dp-output-json::-webkit-scrollbar { width: 6px; height: 6px; }
+.dp-output-json::-webkit-scrollbar-thumb { background: rgba(37, 99, 235, 0.2); border-radius: 3px; }
+.dp-output-json pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: #e2e8f0;
+  white-space: pre;
+}
+.dp-output-json .json-key { color: #93c5fd; }
+.dp-output-json .json-str { color: #86efac; }
+.dp-output-json .json-num { color: #fbbf24; }
+.dp-output-json .json-bool { color: #a78bfa; }
+.dp-output-json .json-null { color: #64748b; }
+.dp-output-json .json-highlight {
+  background: rgba(37, 99, 235, 0.08);
+  display: inline;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+.dp-output-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--dp-blue-faded);
+  border: 1px solid var(--dp-blue-border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.dp-output-callout svg {
+  width: 16px; height: 16px; min-width: 16px;
+  margin-top: 2px;
+  stroke: var(--dp-blue); fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+@media (max-width: 560px) {
+  .dp-output-tabs { flex-wrap: wrap; gap: 4px; }
+  .dp-output-tab { font-size: 11px; padding: 8px 12px; }
+  .dp-output-header { flex-wrap: wrap; padding: 12px 16px; }
+  .dp-output-desc { margin-left: 0; }
+  .dp-output-json { padding: 14px 16px; max-height: 340px; }
+  .dp-output-json pre { font-size: 11px; }
+  .dp-output-panel { border-radius: 0 0 var(--radius) var(--radius); }
+}
+
 /* ---- Section Divider ---- */
 .dp-divider {
   height: 1px;
@@ -824,6 +959,7 @@ body {
     <a href="#demos">Demos</a>
     <a href="#formats">Formats</a>
     <a href="#capabilities">Capabilities</a>
+    <a href="#output-examples">Examples</a>
     <a href="#benchmarks">Benchmarks</a>
     <a href="#how-it-works">Architecture</a>
   </nav>
@@ -1108,6 +1244,199 @@ body {
         <div class="dp-cap-detail">63 ensures contracts across all modules. Filter bounds, 1:1 mapper preservation, structural invariants. Z3-verifiable at compile time.</div>
         <span class="dp-cap-badge dp-cap-badge--unique">Unique</span>
       </div>
+    </div>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- ============ OUTPUT EXAMPLES ============ -->
+  <section class="section reveal" id="output-examples">
+    <div class="section-header">
+      <span class="section-title">Parsed Output</span>
+      <span class="section-count">Block ADT → JSON</span>
+    </div>
+    <p class="section-desc">
+      Every format produces the same structured Block ADT. Here's real output from actual documents &mdash; no AI needed for Office formats.
+    </p>
+
+    <div class="dp-output-tabs">
+      <button class="dp-output-tab active" data-tab="track-changes">Track Changes</button>
+      <button class="dp-output-tab" data-tab="merged-cells">Merged Cells</button>
+      <button class="dp-output-tab" data-tab="tables">Tables</button>
+      <button class="dp-output-tab" data-tab="comments">Comments</button>
+    </div>
+
+    <!-- Track Changes -->
+    <div class="dp-output-panel active" id="panel-track-changes">
+      <div class="dp-output-header">
+        <span class="dp-output-file">track_changes_move.docx</span>
+        <span class="dp-output-badge dp-output-badge--exclusive">Exclusive</span>
+        <span class="dp-output-desc">Moved paragraphs preserved with author &amp; timestamp</span>
+      </div>
+      <div class="dp-output-json">
+        <pre>{
+  <span class="json-key">"format"</span>: <span class="json-str">"docx"</span>,
+  <span class="json-key">"metadata"</span>: {
+    <span class="json-key">"author"</span>: <span class="json-str">"Jesse Rosenthal"</span>,
+    <span class="json-key">"created"</span>: <span class="json-str">"2016-04-16T12:18:00Z"</span>
+  },
+  <span class="json-key">"blocks"</span>: [
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"Here is some text."</span> },
+
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"Here is the text to be moved."</span> },
+
+    <span class="json-highlight">{
+      <span class="json-key">"type"</span>: <span class="json-str">"change"</span>,
+      <span class="json-key">"changeType"</span>: <span class="json-str">"move-to"</span>,
+      <span class="json-key">"author"</span>: <span class="json-str">"Jesse Rosenthal"</span>,
+      <span class="json-key">"date"</span>: <span class="json-str">"2016-04-16T08:20:00Z"</span>,
+      <span class="json-key">"text"</span>: <span class="json-str">"Here is the text to be moved."</span>
+    }</span>,
+
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"Here is some more text."</span> },
+
+    <span class="json-highlight">{
+      <span class="json-key">"type"</span>: <span class="json-str">"change"</span>,
+      <span class="json-key">"changeType"</span>: <span class="json-str">"move-from"</span>,
+      <span class="json-key">"author"</span>: <span class="json-str">"Jesse Rosenthal"</span>,
+      <span class="json-key">"date"</span>: <span class="json-str">"2016-04-16T08:20:00Z"</span>,
+      <span class="json-key">"text"</span>: <span class="json-str">"Here is the text to be moved."</span>
+    }</span>
+  ],
+  <span class="json-key">"summary"</span>: { <span class="json-key">"totalBlocks"</span>: <span class="json-num">11</span>, <span class="json-key">"changes"</span>: <span class="json-num">2</span> }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Merged Cells -->
+    <div class="dp-output-panel" id="panel-merged-cells">
+      <div class="dp-output-header">
+        <span class="dp-output-file">merged_cells.docx</span>
+        <span class="dp-output-badge dp-output-badge--exclusive">Exclusive</span>
+        <span class="dp-output-desc">Column spans &amp; merged cells preserved structurally</span>
+      </div>
+      <div class="dp-output-json">
+        <pre>{
+  <span class="json-key">"format"</span>: <span class="json-str">"docx"</span>,
+  <span class="json-key">"metadata"</span>: {
+    <span class="json-key">"author"</span>: <span class="json-str">"Shay Hill"</span>,
+    <span class="json-key">"created"</span>: <span class="json-str">"2023-01-23T17:59:00Z"</span>
+  },
+  <span class="json-key">"blocks"</span>: [
+    {
+      <span class="json-key">"type"</span>: <span class="json-str">"table"</span>,
+      <span class="json-key">"headers"</span>: [
+        <span class="json-str">"0-0"</span>,
+        <span class="json-highlight">{ <span class="json-key">"text"</span>: <span class="json-str">"0-12"</span>, <span class="json-key">"colSpan"</span>: <span class="json-num">2</span>, <span class="json-key">"merged"</span>: <span class="json-bool">false</span> }</span>,
+        <span class="json-str">"0-3"</span>
+      ],
+      <span class="json-key">"rows"</span>: [
+        [<span class="json-str">"12-0"</span>, <span class="json-str">"1-1"</span>, <span class="json-str">"1-2"</span>, <span class="json-str">"1-3"</span>],
+        [<span class="json-highlight">{ <span class="json-key">"text"</span>: <span class="json-str">""</span>, <span class="json-key">"colSpan"</span>: <span class="json-num">1</span>, <span class="json-key">"merged"</span>: <span class="json-bool">true</span> }</span>, <span class="json-str">"2-1"</span>, <span class="json-str">"2-2"</span>, <span class="json-str">"2-3"</span>],
+        [<span class="json-str">"3-0"</span>, <span class="json-highlight">{ <span class="json-key">"text"</span>: <span class="json-str">"34-123"</span>, <span class="json-key">"colSpan"</span>: <span class="json-num">3</span>, <span class="json-key">"merged"</span>: <span class="json-bool">false</span> }</span>],
+        [<span class="json-str">"4-0"</span>, <span class="json-highlight">{ <span class="json-key">"text"</span>: <span class="json-str">""</span>, <span class="json-key">"colSpan"</span>: <span class="json-num">3</span>, <span class="json-key">"merged"</span>: <span class="json-bool">true</span> }</span>]
+      ]
+    }
+  ],
+  <span class="json-key">"summary"</span>: { <span class="json-key">"totalBlocks"</span>: <span class="json-num">2</span>, <span class="json-key">"tables"</span>: <span class="json-num">1</span> }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Tables -->
+    <div class="dp-output-panel" id="panel-tables">
+      <div class="dp-output-header">
+        <span class="dp-output-file">tables.docx</span>
+        <span class="dp-output-badge dp-output-badge--structural">Structural</span>
+        <span class="dp-output-desc">Headers, rows, and multi-paragraph cells</span>
+      </div>
+      <div class="dp-output-json">
+        <pre>{
+  <span class="json-key">"format"</span>: <span class="json-str">"docx"</span>,
+  <span class="json-key">"blocks"</span>: [
+    { <span class="json-key">"type"</span>: <span class="json-str">"heading"</span>, <span class="json-key">"text"</span>: <span class="json-str">"A table, with and without a header row"</span>, <span class="json-key">"level"</span>: <span class="json-num">2</span> },
+
+    {
+      <span class="json-key">"type"</span>: <span class="json-str">"table"</span>,
+      <span class="json-key">"headers"</span>: [<span class="json-str">"Name"</span>, <span class="json-str">"Game"</span>, <span class="json-str">"Fame"</span>, <span class="json-str">"Blame"</span>],
+      <span class="json-key">"rows"</span>: [
+        <span class="json-highlight">[<span class="json-str">"Lebron James"</span>,  <span class="json-str">"Basketball"</span>, <span class="json-str">"Very High"</span>, <span class="json-str">"Leaving Cleveland"</span>]</span>,
+        [<span class="json-str">"Ryan Braun"</span>,     <span class="json-str">"Baseball"</span>,   <span class="json-str">"Moderate"</span>,  <span class="json-str">"Steroids"</span>],
+        [<span class="json-str">"Russell Wilson"</span>, <span class="json-str">"Football"</span>,   <span class="json-str">"High"</span>,     <span class="json-str">"Tacky uniform"</span>]
+      ]
+    },
+
+    { <span class="json-key">"type"</span>: <span class="json-str">"table"</span>, <span class="json-key">"headers"</span>: [<span class="json-str">"Sinple"</span>, <span class="json-str">"Table"</span>], <span class="json-key">"rows"</span>: [[<span class="json-str">"Without"</span>, <span class="json-str">"Header"</span>]] },
+
+    {
+      <span class="json-key">"type"</span>: <span class="json-str">"table"</span>,
+      <span class="json-key">"headers"</span>: [<span class="json-str">"Simple\n\nMultiparagraph"</span>, <span class="json-str">"Table\n\nFull"</span>],
+      <span class="json-key">"rows"</span>: [[<span class="json-str">"Of\n\nParagraphs"</span>, <span class="json-str">"In each\n\nCell."</span>]]
+    }
+  ],
+  <span class="json-key">"summary"</span>: { <span class="json-key">"totalBlocks"</span>: <span class="json-num">8</span>, <span class="json-key">"headings"</span>: <span class="json-num">1</span>, <span class="json-key">"tables"</span>: <span class="json-num">3</span> }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Comments -->
+    <div class="dp-output-panel" id="panel-comments">
+      <div class="dp-output-header">
+        <span class="dp-output-file">comments.docx</span>
+        <span class="dp-output-badge dp-output-badge--exclusive">Exclusive</span>
+        <span class="dp-output-desc">Comments as nested SectionBlocks with author attribution</span>
+      </div>
+      <div class="dp-output-json">
+        <pre>{
+  <span class="json-key">"format"</span>: <span class="json-str">"docx"</span>,
+  <span class="json-key">"metadata"</span>: {
+    <span class="json-key">"author"</span>: <span class="json-str">"Jesse Rosenthal"</span>,
+    <span class="json-key">"created"</span>: <span class="json-str">"2016-05-09T20:15:00Z"</span>
+  },
+  <span class="json-key">"blocks"</span>: [
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"I want some text to have a comment on it."</span> },
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"This is a new paragraph."</span> },
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"And so is this."</span> },
+    { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>, <span class="json-key">"text"</span>: <span class="json-str">"One more. And this is one with a comment in a comment."</span> },
+
+    <span class="json-highlight">{
+      <span class="json-key">"type"</span>: <span class="json-str">"section"</span>,
+      <span class="json-key">"kind"</span>: <span class="json-str">"comment"</span>,
+      <span class="json-key">"blocks"</span>: [
+        { <span class="json-key">"text"</span>: <span class="json-str">"[Jesse Rosenthal] I left a comment."</span> }
+      ]
+    }</span>,
+    <span class="json-highlight">{
+      <span class="json-key">"type"</span>: <span class="json-str">"section"</span>,
+      <span class="json-key">"kind"</span>: <span class="json-str">"comment"</span>,
+      <span class="json-key">"blocks"</span>: [
+        { <span class="json-key">"text"</span>: <span class="json-str">"[Jesse Rosenthal] A comment across paragraphs."</span> }
+      ]
+    }</span>,
+    <span class="json-highlight">{
+      <span class="json-key">"type"</span>: <span class="json-str">"section"</span>,
+      <span class="json-key">"kind"</span>: <span class="json-str">"comment"</span>,
+      <span class="json-key">"blocks"</span>: [
+        { <span class="json-key">"text"</span>: <span class="json-str">"[Jesse Rosenthal] This one has multiple paragraphs. See?"</span> }
+      ]
+    }</span>,
+    {
+      <span class="json-key">"type"</span>: <span class="json-str">"section"</span>, <span class="json-key">"kind"</span>: <span class="json-str">"comment"</span>,
+      <span class="json-key">"blocks"</span>: [{ <span class="json-key">"text"</span>: <span class="json-str">"[Jesse Rosenthal] Do something."</span> }]
+    },
+    {
+      <span class="json-key">"type"</span>: <span class="json-str">"section"</span>, <span class="json-key">"kind"</span>: <span class="json-str">"comment"</span>,
+      <span class="json-key">"blocks"</span>: [{ <span class="json-key">"text"</span>: <span class="json-str">"[Jesse Rosenthal] Do something else."</span> }]
+    }
+  ],
+  <span class="json-key">"summary"</span>: { <span class="json-key">"totalBlocks"</span>: <span class="json-num">9</span>, <span class="json-key">"changes"</span>: <span class="json-num">0</span> }
+}</pre>
+      </div>
+    </div>
+
+    <div class="dp-output-callout">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>These are real outputs from <strong>actual test documents</strong>, not mock data. The highlighted blocks show features that competing parsers miss entirely. Track changes, merged cell spans, and comments are preserved structurally &mdash; not flattened to plain text.</span>
     </div>
   </section>
 
@@ -1462,6 +1791,18 @@ body {
 
   window.addEventListener('scroll', updateActiveNav, { passive: true });
   updateActiveNav();
+
+  // Output example tabs
+  document.querySelectorAll('.dp-output-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var tabId = this.getAttribute('data-tab');
+      document.querySelectorAll('.dp-output-tab').forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.dp-output-panel').forEach(function(p) { p.classList.remove('active'); });
+      this.classList.add('active');
+      var panel = document.getElementById('panel-' + tabId);
+      if (panel) panel.classList.add('active');
+    });
+  });
 })();
 </script>
 
