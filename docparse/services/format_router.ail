@@ -147,9 +147,9 @@ export pure func strategyDescription(format: string) -> string
     ("video", "AI multimodal extraction (visual + audio understanding)"),
     ("csv", "Delimiter-based parsing (pure AILANG)"),
     ("markdown", "Markdown structure parsing (pure AILANG)"),
-    ("html", "XML-based HTML structure parsing (pure AILANG)"),
-    ("epub", "ZIP extraction + XHTML parsing (pure AILANG)"),
-    ("zip-odf", "ZIP extraction + ODF XML parsing (pure AILANG)"),
+    ("html", "XML-based HTML structure parsing + optional AI for tables"),
+    ("epub", "ZIP extraction + XHTML parsing + optional AI for images/tables"),
+    ("zip-odf", "ZIP extraction + ODF XML parsing + optional AI for images/tables"),
     ("text", "Direct text reading"),
     ("unknown", "AI multimodal extraction (best effort)")
   ]
@@ -161,9 +161,9 @@ export pure func strategyDescription(format: string) -> string
   else if format == "video" then "AI multimodal extraction (visual + audio understanding)"
   else if format == "csv" then "Delimiter-based parsing (pure AILANG)"
   else if format == "markdown" then "Markdown structure parsing (pure AILANG)"
-  else if format == "html" then "XML-based HTML structure parsing (pure AILANG)"
-  else if format == "epub" then "ZIP extraction + XHTML parsing (pure AILANG)"
-  else if format == "zip-odf" then "ZIP extraction + ODF XML parsing (pure AILANG)"
+  else if format == "html" then "XML-based HTML structure parsing + optional AI for tables"
+  else if format == "epub" then "ZIP extraction + XHTML parsing + optional AI for images/tables"
+  else if format == "zip-odf" then "ZIP extraction + ODF XML parsing + optional AI for images/tables"
   else if format == "text" then "Direct text reading"
   else "AI multimodal extraction (best effort)"
 }

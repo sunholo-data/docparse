@@ -4,9 +4,9 @@ import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag
 import std/zip (readEntry)
 import std/option (Some, None, getOrElse)
 import std/result (Ok, Err)
-import std/string (length, trim, contains, startsWith, substring)
+import std/string (length, trim, contains, startsWith, substring, endsWith)
 import std/list (map, flatMap, filter, concat, length as listLength)
-import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ListBlock, SectionBlock, TableCell, DocMetadata, simpleCell, emptyMetadata)
+import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ImageBlock, ListBlock, SectionBlock, TableCell, DocMetadata, simpleCell, emptyMetadata)
 
 -- ODT Parser — converts OpenDocument Text to Block ADT.
 -- Pure AILANG implementation using std/zip + std/xml.
@@ -41,6 +41,46 @@ export func parseOdt(filepath: string) -> [Block] ! {FS}
     Ok(root) => odtExtractBody(root),
     Err(e) => [TextBlock({text: "ODT XML parse error: " ++ e, style: "error", level: 0})]
   }
+}
+
+-- Extract headers and footers from styles.xml
+-- ODF stores headers/footers in style:master-page elements
+export func parseOdtHeadersFooters(filepath: string) -> [Block] ! {FS} {
+  let xml = match readEntry(filepath, "styles.xml") {
+    Ok(c) => c,
+    Err(_) => ""
+  };
+
+  if length(xml) == 0 then []
+  else match parse(xml) {
+    Ok(root) => odtExtractHeadersFooters(root),
+    Err(_) => []
+  }
+}
+
+-- Extract header/footer blocks from styles.xml
+pure func odtExtractHeadersFooters(root: XmlNode) -> [Block] {
+  let masterPages = findAll(root, "style:master-page");
+  flatMap(odtExtractMasterPage, masterPages)
+}
+
+-- Extract headers/footers from a single master-page
+pure func odtExtractMasterPage(mp: XmlNode) -> [Block] {
+  let headers = match findFirst(mp, "style:header") {
+    Some(h) =>
+      let blocks = odtProcessChildren(getChildren(h)) in
+      if listLength(blocks) > 0 then [SectionBlock({kind: "header", blocks: blocks})]
+      else [],
+    None => []
+  };
+  let footers = match findFirst(mp, "style:footer") {
+    Some(f) =>
+      let blocks = odtProcessChildren(getChildren(f)) in
+      if listLength(blocks) > 0 then [SectionBlock({kind: "footer", blocks: blocks})]
+      else [],
+    None => []
+  };
+  concat(headers, footers)
 }
 
 -- Extract metadata from an ODT file
@@ -89,11 +129,12 @@ pure func odtProcessNode(node: XmlNode) -> [Block] {
     if length(text) > 0 then [HeadingBlock({text: text, level: level})]
     else []
 
-  -- Paragraphs: text:p
+  -- Paragraphs: text:p (may contain embedded draw:frame children)
   else if tag == "text:p" then
     let text = trim(getText(node)) in
-    if length(text) > 0 then [TextBlock({text: text, style: "normal", level: 0})]
-    else []
+    let embeddedFrames = flatMap(odtProcessNode, filter(\c. getTag(c) == "draw:frame", getChildren(node))) in
+    let textBlocks = if length(text) > 0 then [TextBlock({text: text, style: "normal", level: 0})] else [] in
+    concat(textBlocks, embeddedFrames)
 
   -- Tables: table:table
   else if tag == "table:table" then [odtParseTable(node)]
@@ -196,8 +237,29 @@ pure func odtProcessFrame(frame: XmlNode) -> [Block] {
       let blocks = odtProcessChildren(getChildren(textBox)) in
       if listLength(blocks) > 0 then [SectionBlock({kind: "textbox", blocks: blocks})]
       else [],
-    None => []
+    None =>
+      -- Check for image (draw:image with xlink:href)
+      match findFirst(frame, "draw:image") {
+        Some(img) =>
+          let href = getOrElse(getAttr(img, "xlink:href"), "") in
+          let desc = getOrElse(getAttr(frame, "draw:name"), "") in
+          if length(href) > 0
+          then [ImageBlock({data: href, description: desc, mime: odtGuessMime(href)})]
+          else [],
+        None => []
+      }
   }
+}
+
+-- Guess MIME type from image path
+pure func odtGuessMime(href: string) -> string {
+  if endsWith(href, ".png") then "image/png"
+  else if endsWith(href, ".jpg") || endsWith(href, ".jpeg") then "image/jpeg"
+  else if endsWith(href, ".gif") then "image/gif"
+  else if endsWith(href, ".svg") then "image/svg+xml"
+  else if endsWith(href, ".bmp") then "image/bmp"
+  else if endsWith(href, ".webp") then "image/webp"
+  else "image/unknown"
 }
 
 -- Parse metadata from meta.xml

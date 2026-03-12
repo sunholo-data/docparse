@@ -3,6 +3,7 @@ module docparse/services/zip_extract
 import std/zip (listEntries, readEntry, readEntryBytes)
 import std/string (contains, length, endsWith, startsWith)
 import std/result (Ok, Err)
+import docparse/types/document (Block, ImageBlock, SectionBlock)
 
 -- ZIP extraction layer for Office documents
 -- DOCX, PPTX, XLSX are all ZIP archives containing XML parts.
@@ -235,4 +236,43 @@ export pure func mediaMimeType(filename: string) -> string
   else if endsWith(filename, ".emf") then "image/emf"
   else if endsWith(filename, ".wmf") then "image/wmf"
   else "application/octet-stream"
+}
+
+-- Resolve image references in blocks to binary data from a ZIP file.
+-- Walks blocks recursively (including SectionBlock children).
+-- For each ImageBlock whose data looks like a ZIP path, reads the binary.
+export func resolveBlockImages(zipPath: string, blocks: [Block]) -> [Block] ! {FS} =
+  match blocks {
+    [] => [],
+    b :: rest => {
+      let resolved = zipResolveOneBlock(zipPath, b);
+      let moreResolved = resolveBlockImages(zipPath, rest);
+      resolved :: moreResolved
+    }
+  }
+
+-- Resolve a single block's image reference
+func zipResolveOneBlock(zipPath: string, b: Block) -> Block ! {FS} =
+  match b {
+    ImageBlock(img) =>
+      if zipIsZipPath(img.data) then {
+        let imageData = readImageEntry(zipPath, img.data);
+        let mime = if length(imageData) > 0 then mediaMimeType(img.data) else img.mime;
+        ImageBlock({data: imageData, description: img.description, mime: mime})
+      } else b,
+    SectionBlock(s) => {
+      let resolvedInner = resolveBlockImages(zipPath, s.blocks);
+      SectionBlock({kind: s.kind, blocks: resolvedInner})
+    },
+    _ => b
+  }
+
+-- Check if data looks like a ZIP-internal path (not base64, not URL, not empty)
+pure func zipIsZipPath(data: string) -> bool {
+  length(data) > 0 &&
+  length(data) < 500 &&
+  startsWith(data, "http://") == false &&
+  startsWith(data, "https://") == false &&
+  startsWith(data, "data:") == false &&
+  (contains(data, "/") || contains(data, "."))
 }

@@ -4,9 +4,9 @@ import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag
 import std/zip (readEntry)
 import std/option (Some, None, getOrElse)
 import std/result (Ok, Err)
-import std/string (length, trim)
+import std/string (length, trim, endsWith)
 import std/list (map, flatMap, filter, concat, length as listLength)
-import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ListBlock, SectionBlock, TableCell, DocMetadata, simpleCell, emptyMetadata)
+import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ImageBlock, ListBlock, SectionBlock, TableCell, DocMetadata, simpleCell, emptyMetadata)
 
 -- ODP Parser — converts OpenDocument Presentation to Block ADT.
 -- Pure AILANG implementation using std/zip + std/xml.
@@ -91,7 +91,7 @@ pure func odpProcessFrame(node: XmlNode) -> [Block] {
   else []
 }
 
--- Process children of a draw:frame (text boxes, tables)
+-- Process children of a draw:frame (text boxes, tables, images)
 pure func odpProcessFrameChild(node: XmlNode) -> [Block] {
   let tag = getTag(node);
 
@@ -100,7 +100,24 @@ pure func odpProcessFrameChild(node: XmlNode) -> [Block] {
     flatMap(odpProcessTextElement, children)
   }
   else if tag == "table:table" then [odpParseTable(node)]
+  else if tag == "draw:image" then {
+    let href = getOrElse(getAttr(node, "xlink:href"), "");
+    if length(href) > 0
+    then [ImageBlock({data: href, description: "", mime: odpGuessMime(href)})]
+    else []
+  }
   else []
+}
+
+-- Guess MIME type from image path
+pure func odpGuessMime(href: string) -> string {
+  if endsWith(href, ".png") then "image/png"
+  else if endsWith(href, ".jpg") || endsWith(href, ".jpeg") then "image/jpeg"
+  else if endsWith(href, ".gif") then "image/gif"
+  else if endsWith(href, ".svg") then "image/svg+xml"
+  else if endsWith(href, ".bmp") then "image/bmp"
+  else if endsWith(href, ".webp") then "image/webp"
+  else "image/unknown"
 }
 
 -- Process text elements inside a text box

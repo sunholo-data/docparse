@@ -1,7 +1,7 @@
 module docparse/services/layout_ai
 
 import std/ai (call, callJson, callJsonSimple)
-import std/string (length, join, substring)
+import std/string (length, join, substring, startsWith)
 import std/json (decode, getString, getArray, getInt, asString, asArray, asNumber)
 import std/math (floatToInt)
 import std/option (Some, None, flatMap as optFlatMap, getOrElse)
@@ -29,9 +29,10 @@ export func describeImages(blocks: [Block]) -> [Block] ! {AI}
 func describeOneBlock(b: Block) -> Block ! {AI} =
   match b {
     ImageBlock(img) => {
-      let description = if length(img.data) > 0
+      -- Only describe if data is actual base64 (long) and not a URL reference
+      let description = if length(img.data) > 100 && layoutIsUrlRef(img.data) == false
         then call("Describe this image concisely in one sentence. Focus on the key content and any text visible. Image data (base64): " ++ img.data)
-        else "";
+        else img.description;
       ImageBlock({data: img.data, description: description, mime: img.mime})
     },
     SectionBlock(s) => {
@@ -40,6 +41,11 @@ func describeOneBlock(b: Block) -> Block ! {AI} =
     },
     _ => b
   }
+
+-- Check if data looks like a URL reference rather than base64 image data
+pure func layoutIsUrlRef(data: string) -> bool {
+  startsWith(data, "http://") || startsWith(data, "https://") || startsWith(data, "data:")
+}
 
 -- Use AI to infer table structure from raw cell data
 -- Handles: merged cells, header detection, nested tables

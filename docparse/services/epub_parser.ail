@@ -6,7 +6,7 @@ import std/result (Ok, Err)
 import std/option (Some, None, getOrElse)
 import std/string (length, trim, endsWith, contains, startsWith, split, find, substring)
 import std/list (map, flatMap, filter, concat, foldl, length as listLength)
-import docparse/types/document (Block, TextBlock, HeadingBlock, SectionBlock, DocMetadata)
+import docparse/types/document (Block, TextBlock, HeadingBlock, ImageBlock, SectionBlock, DocMetadata)
 import docparse/services/html_parser (parseHtml)
 
 -- EPUB Parser — extracts structured content from EPUB ebooks.
@@ -199,8 +199,10 @@ func epubParseContentFile(filepath: string, entryPath: string) -> [Block] ! {FS}
     -- Filter out empty/error-only results
     if listLength(blocks) == 0 then []
     else {
+      let chapterDir = epubDirName(entryPath);
+      let resolvedBlocks = epubResolveImagePaths(blocks, chapterDir);
       let chapterName = epubBaseName(entryPath);
-      [SectionBlock({kind: "chapter:" ++ chapterName, blocks: blocks})]
+      [SectionBlock({kind: "chapter:" ++ chapterName, blocks: resolvedBlocks})]
     }
   }
 }
@@ -232,4 +234,47 @@ pure func epubFindMetaText(root: XmlNode, tagName: string) -> string {
     [] => "",
     el :: _ => trim(getText(el))
   }
+}
+
+-- Resolve relative image paths in blocks to full ZIP entry paths
+-- chapterDir is the directory prefix of the chapter (e.g., "OEBPS/Text/")
+pure func epubResolveImagePaths(blocks: [Block], chapterDir: string) -> [Block] =
+  match blocks {
+    [] => [],
+    b :: rest => epubResolveOneImage(b, chapterDir) :: epubResolveImagePaths(rest, chapterDir)
+  }
+
+-- Resolve a single block's image path
+pure func epubResolveOneImage(b: Block, chapterDir: string) -> Block =
+  match b {
+    ImageBlock(img) =>
+      let resolved = epubResolvePath(chapterDir, img.data) in
+      ImageBlock({data: resolved, description: img.description, mime: img.mime}),
+    SectionBlock(s) =>
+      SectionBlock({kind: s.kind, blocks: epubResolveImagePaths(s.blocks, chapterDir)}),
+    _ => b
+  }
+
+-- Resolve a relative path against a directory base
+-- "image.jpg" with base "OEBPS/Text/" => "OEBPS/Text/image.jpg"
+-- "../Images/img.png" with base "OEBPS/Text/" => "OEBPS/Images/img.png"
+pure func epubResolvePath(baseDir: string, relPath: string) -> string {
+  if startsWith(relPath, "http://") || startsWith(relPath, "https://") then relPath
+  else if startsWith(relPath, "/") then substring(relPath, 1, length(relPath))
+  else if startsWith(relPath, "../") then
+    let parent = epubParentDir(baseDir) in
+    epubResolvePath(parent, substring(relPath, 3, length(relPath)))
+  else baseDir ++ relPath
+}
+
+-- Get parent directory (e.g., "OEBPS/Text/" -> "OEBPS/")
+-- Strips trailing slash, then finds last slash
+pure func epubParentDir(dir: string) -> string {
+  -- Remove trailing slash if present
+  let trimmed = if length(dir) > 0 && endsWith(dir, "/")
+    then substring(dir, 0, length(dir) - 1)
+    else dir;
+  let lastSlash = epubLastSlash(trimmed, 0, -1);
+  if lastSlash >= 0 then substring(trimmed, 0, lastSlash + 1)
+  else ""
 }

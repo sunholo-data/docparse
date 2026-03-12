@@ -6,9 +6,9 @@ import std/string (length)
 import std/list (last, concat, any)
 import std/option (Some, None)
 import std/result (Ok, Err)
-import docparse/types/document (Block, TableCell, SectionBlock, ParsedDocument, ExtractionResult, DocMetadata, emptyMetadata, simpleCell, mergedCell, spanCell, cellText, countBlocks, filterHeadings, filterTables, filterImages, filterSections)
+import docparse/types/document (Block, TextBlock, TableCell, SectionBlock, ParsedDocument, ExtractionResult, DocMetadata, emptyMetadata, simpleCell, mergedCell, spanCell, cellText, countBlocks, filterHeadings, filterTables, filterImages, filterSections)
 import docparse/services/format_router (detectFormat, getExtension, officeType, strategyDescription, needsAI)
-import docparse/services/zip_extract (readDocxContent, readCoreProperties, listOfficeEntries, findMediaEntries, readEmbeddedImage, mediaMimeType)
+import docparse/services/zip_extract (readDocxContent, readCoreProperties, listOfficeEntries, findMediaEntries, readEmbeddedImage, mediaMimeType, resolveBlockImages)
 import docparse/services/docx_parser (parseDocx, parseDocxMetadata, parseDocxImages, parseDocxHeaders, parseDocxFooters, parseDocxFootnotes, parseDocxEndnotes, parseDocxComments)
 import docparse/services/pptx_parser (parsePptx, parsePptxMetadata, parsePptxImages)
 import docparse/services/xlsx_parser (parseXlsx, parseXlsxMetadata)
@@ -18,7 +18,7 @@ import docparse/services/csv_parser (parseCsv)
 import docparse/services/markdown_parser (parseMarkdown)
 import docparse/services/html_parser (parseHtml)
 import docparse/services/epub_parser (parseEpub, parseEpubMetadata)
-import docparse/services/odt_parser (parseOdt, parseOdtMetadata)
+import docparse/services/odt_parser (parseOdt, parseOdtMetadata, parseOdtHeadersFooters)
 import docparse/services/odp_parser (parseOdp, parseOdpMetadata)
 import docparse/services/ods_parser (parseOds, parseOdsMetadata)
 import docparse/services/output_formatter (formatResult, printSummary, printBlocks, renderMarkdown)
@@ -101,9 +101,9 @@ export func main() -> () ! {IO @limit=200, FS @limit=40, AI @limit=30, Env} {
       "video" => parseVideoDocument(filepath, ext, doSummarize),
       "csv" => parseCsvDocument(filepath, ext),
       "markdown" => parseMarkdownDocument(filepath),
-      "html" => parseHtmlDocument(filepath),
-      "epub" => parseEpubDocument(filepath),
-      "zip-odf" => parseOdfDocument(filepath, ext),
+      "html" => parseHtmlDocument(filepath, useAI || doSummarize, doSummarize),
+      "epub" => parseEpubDocument(filepath, useAI || doSummarize, doSummarize),
+      "zip-odf" => parseOdfDocument(filepath, ext, useAI || doSummarize, doSummarize),
       "text" => parseTextDocument(filepath),
       _ => println("Format '" ++ format ++ "' not yet supported in this demo.")
     }
@@ -594,7 +594,7 @@ func parseMarkdownDocument(filepath: string) -> () ! {IO, FS, AI} {
 }
 
 -- Parse an EPUB document (ZIP of XHTML, pure AILANG)
-func parseEpubDocument(filepath: string) -> () ! {IO, FS, AI} {
+func parseEpubDocument(filepath: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
   println("--- Parsing EPUB (pure AILANG, ZIP + XHTML) ---");
   println("");
 
@@ -602,36 +602,59 @@ func parseEpubDocument(filepath: string) -> () ! {IO, FS, AI} {
   println("Extracting metadata...");
   let metadata = parseEpubMetadata(filepath);
 
-  -- Parse content
+  -- Parse content (image paths resolved to full ZIP paths in epub_parser)
   println("Parsing XHTML chapters...");
   let blocks = parseEpub(filepath);
   println("Extracted " ++ show(countBlocks(blocks)) ++ " blocks.");
+
+  -- Resolve image references to binary data from EPUB ZIP
+  println("Resolving embedded images...");
+  let resolvedBlocks = resolveBlockImages(filepath, blocks);
+  let imageCount = countBlocks(filterImages(resolvedBlocks));
+
+  -- AI image descriptions (optional)
+  let describedBlocks = if useAI && imageCount > 0 then {
+    println("Describing " ++ show(imageCount) ++ " images with AI...");
+    describeImages(resolvedBlocks)
+  } else {
+    if imageCount > 0
+    then println("Images: " ++ show(imageCount) ++ " (pass 'describe' arg for AI descriptions)")
+    else println("No images found.");
+    resolvedBlocks
+  };
+
+  -- AI self-healing (fix tables with empty/ambiguous cells)
+  let allBlocks = if useAI then {
+    println("Enhancing blocks with AI (fixing tables, layout)...");
+    enhanceBlocks(describedBlocks)
+  } else describedBlocks;
   println("");
 
+  let aiCalls = if useAI then imageCount else 0;
   let doc = {
     format: "epub",
     filename: filepath,
     metadata: metadata,
-    blocks: blocks
+    blocks: allBlocks
   };
 
   let result = {
     document: doc,
     warnings: [],
-    aiCallsUsed: 0
+    aiCallsUsed: aiCalls
   };
 
   printSummary(doc);
   println("");
   println("--- Content Blocks ---");
-  printBlocks(blocks);
+  printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, false)
+  writeOutputs(doc, result, doSummarize)
 }
 
 -- Parse an ODF document (ODT/ODP/ODS — pure AILANG, ZIP + ODF XML)
-func parseOdfDocument(filepath: string, ext: string) -> () ! {IO, FS, AI} {
+func parseOdfDocument(filepath: string, ext: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
   let odfType = if ext == "odt" then "text"
     else if ext == "odp" then "presentation"
     else if ext == "ods" then "spreadsheet"
@@ -645,53 +668,107 @@ func parseOdfDocument(filepath: string, ext: string) -> () ! {IO, FS, AI} {
     else if ext == "odp" then parseOdpMetadata(filepath)
     else parseOdsMetadata(filepath);
 
+  -- Extract headers/footers (ODT only, from styles.xml)
+  let hdrFtrBlocks = if ext == "odt" then {
+    println("Extracting headers/footers...");
+    let hf = parseOdtHeadersFooters(filepath);
+    println("Found " ++ show(countBlocks(hf)) ++ " header/footer blocks.");
+    hf
+  } else [];
+
   -- Parse content
   println("Parsing ODF XML...");
-  let blocks = if ext == "odt" then parseOdt(filepath)
+  let bodyBlocks = if ext == "odt" then parseOdt(filepath)
     else if ext == "odp" then parseOdp(filepath)
     else parseOds(filepath);
+  let blocks = concat(bodyBlocks, hdrFtrBlocks);
   println("Extracted " ++ show(countBlocks(blocks)) ++ " blocks.");
+
+  -- Resolve image references to binary data from ZIP
+  println("Resolving embedded images...");
+  let resolvedBlocks = resolveBlockImages(filepath, blocks);
+  let imageCount = countBlocks(filterImages(resolvedBlocks));
+
+  -- AI image descriptions (optional)
+  let describedBlocks = if useAI && imageCount > 0 then {
+    println("Describing " ++ show(imageCount) ++ " images with AI...");
+    describeImages(resolvedBlocks)
+  } else {
+    if imageCount > 0
+    then println("Images: " ++ show(imageCount) ++ " (pass 'describe' arg for AI descriptions)")
+    else println("No images found.");
+    resolvedBlocks
+  };
+
+  -- AI self-healing (fix tables with empty/ambiguous cells)
+  let allBlocks = if useAI then {
+    println("Enhancing blocks with AI (fixing tables, layout)...");
+    enhanceBlocks(describedBlocks)
+  } else describedBlocks;
   println("");
 
+  let aiCalls = if useAI then imageCount else 0;
   let doc = {
     format: ext,
     filename: filepath,
     metadata: metadata,
-    blocks: blocks
+    blocks: allBlocks
   };
 
   let result = {
     document: doc,
     warnings: [],
-    aiCallsUsed: 0
+    aiCallsUsed: aiCalls
   };
 
   printSummary(doc);
   println("");
   println("--- Content Blocks ---");
-  printBlocks(blocks);
+  printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, false)
+  writeOutputs(doc, result, doSummarize)
 }
 
 -- Parse an HTML/XHTML document (pure AILANG, XML-based)
-func parseHtmlDocument(filepath: string) -> () ! {IO, FS, AI} {
+-- Strategy: try deterministic XML parse first, AI fallback for dirty HTML
+func parseHtmlDocument(filepath: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
   println("--- Parsing HTML (pure AILANG, XML-based) ---");
   println("");
 
   let content = readFile(filepath);
   println("Parsing " ++ show(length(content)) ++ " chars of HTML...");
 
+  -- Step 1: Try deterministic XML parsing
   let blocks = parseHtml(content);
-  println("Extracted " ++ show(countBlocks(blocks)) ++ " blocks.");
+  let hasError = htmlHasParseError(blocks);
+
+  -- Step 2: If parse failed and AI is enabled, extract text via AI
+  let resolvedBlocks = if hasError && useAI then {
+    println("XML parse failed — extracting text content via AI...");
+    let extracted = call(
+      "Extract the text content from this HTML. Return the main text, preserving:" ++
+      " paragraph breaks, headings, list items, and table data." ++
+      " Ignore HTML tags, scripts, and styles. Return clean readable text.\n\n" ++
+      content
+    );
+    [TextBlock({text: extracted, style: "ai-extracted", level: 0})]
+  } else blocks;
+
+  println("Extracted " ++ show(countBlocks(resolvedBlocks)) ++ " blocks.");
+
+  -- Apply AI table enhancement (only if parse succeeded deterministically)
+  let allBlocks = if useAI && hasError == false then {
+    println("Enhancing blocks with AI (fixing tables, layout)...");
+    enhanceBlocks(resolvedBlocks)
+  } else resolvedBlocks;
   println("");
 
   let doc = {
     format: "html",
     filename: filepath,
     metadata: emptyMetadata(),
-    blocks: blocks
+    blocks: allBlocks
   };
 
   let result = {
@@ -703,10 +780,10 @@ func parseHtmlDocument(filepath: string) -> () ! {IO, FS, AI} {
   printSummary(doc);
   println("");
   println("--- Content Blocks ---");
-  printBlocks(blocks);
+  printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, false)
+  writeOutputs(doc, result, doSummarize)
 }
 
 -- Parse a plain text document
@@ -751,3 +828,13 @@ func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bo
   println("=== DocParse Complete ===")
 }
 
+-- Check if parsed HTML blocks contain a parse error
+-- The HTML parser returns TextBlock(style: "error") on parse failure
+pure func htmlHasParseError(blocks: [Block]) -> bool =
+  match blocks {
+    [] => false,
+    b :: rest => match b {
+      TextBlock(t) => if t.style == "error" then true else htmlHasParseError(rest),
+      _ => htmlHasParseError(rest)
+    }
+  }
