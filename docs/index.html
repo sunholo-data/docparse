@@ -656,6 +656,117 @@ body {
   line-height: 1.6;
 }
 
+/* ---- Demo Cards ---- */
+.dp-demos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.dp-demo-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px 18px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s ease,
+              border-color 0.25s ease;
+  overflow: hidden;
+}
+.dp-demo-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.dp-demo-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.1);
+  border-color: var(--border-active);
+}
+.dp-demo-card--parse::before { background: var(--dp-blue); }
+.dp-demo-card--extract::before { background: var(--primary); }
+.dp-demo-card--contracts::before { background: #8b5cf6; }
+.dp-demo-card--verify::before { background: #7c3aed; }
+.dp-demo-card--voice::before { background: var(--dp-blue); }
+
+.dp-demo-icon {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+.dp-demo-card--parse .dp-demo-icon { background: var(--dp-blue-faded); color: var(--dp-blue); }
+.dp-demo-card--extract .dp-demo-icon { background: rgba(231, 60, 23, 0.08); color: var(--primary); }
+.dp-demo-card--contracts .dp-demo-icon { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.dp-demo-card--verify .dp-demo-icon { background: rgba(124, 58, 237, 0.08); color: #7c3aed; }
+.dp-demo-card--voice .dp-demo-icon { background: var(--dp-blue-faded); color: var(--dp-blue); }
+
+.dp-demo-icon svg {
+  width: 20px; height: 20px;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.dp-demo-name {
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 5px;
+  letter-spacing: -0.2px;
+}
+.dp-demo-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  flex: 1;
+  margin-bottom: 12px;
+}
+.dp-demo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+}
+.dp-demo-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.dp-demo-badge--wasm { background: var(--dp-blue-faded); color: var(--dp-blue); }
+.dp-demo-badge--api { background: rgba(231, 60, 23, 0.08); color: var(--primary); font-size: 9px; }
+.dp-demo-badge--provider { background: var(--bg-input); color: var(--text-muted); }
+.dp-demo-badge--ws { background: var(--success-bg); color: var(--success); }
+
+.dp-demo-arrow {
+  position: absolute;
+  top: 22px; right: 18px;
+  color: var(--text-muted);
+  font-size: 16px;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.2s, transform 0.2s;
+  font-family: var(--font-mono);
+}
+.dp-demo-card:hover .dp-demo-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (max-width: 900px) {
+  .dp-demos-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .dp-demos-grid { grid-template-columns: 1fr; }
+}
+
 /* ---- Section Divider ---- */
 .dp-divider {
   height: 1px;
@@ -710,6 +821,7 @@ body {
   <span class="header-sep"></span>
   <span class="header-subtitle">Universal Document Parsing</span>
   <nav class="header-nav">
+    <a href="#demos">Demos</a>
     <a href="#formats">Formats</a>
     <a href="#capabilities">Capabilities</a>
     <a href="#benchmarks">Benchmarks</a>
@@ -764,8 +876,8 @@ body {
         <svg viewBox="0 0 16 16" width="16" height="16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         View on GitHub
       </a>
-      <a href="https://sunholo.com/ailang-demos/docparse.html" class="dp-btn dp-btn--secondary" target="_blank" rel="noopener">
-        Try Demo
+      <a href="#demos" class="dp-btn dp-btn--secondary">
+        Try Demos
       </a>
       <a href="https://github.com/sunholo-data/docparse#readme" class="dp-btn dp-btn--ghost" target="_blank" rel="noopener">
         Documentation
@@ -775,6 +887,77 @@ body {
     <p class="note reveal">
       Deterministic Office parsing + pluggable AI for PDFs and images. Powered by <a href="https://github.com/sunholo-data/ailang" style="color: var(--primary);">AILANG</a>.
     </p>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- ============ DEMOS ============ -->
+  <section class="section reveal" id="demos">
+    <div class="section-header">
+      <span class="section-title">Try It</span>
+      <span class="section-count">5 demos</span>
+    </div>
+    <p class="section-desc">
+      All demos run entirely in your browser via WebAssembly. No server needed for Office formats.
+    </p>
+
+    <div class="dp-demos-grid">
+      <a href="https://sunholo.com/ailang-demos/docparse.html" class="dp-demo-card dp-demo-card--parse" target="_blank" rel="noopener">
+        <span class="dp-demo-arrow">&rarr;</span>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
+        <div class="dp-demo-name">DocParse</div>
+        <div class="dp-demo-desc">Drop a DOCX, PPTX, XLSX, PDF, or image and get structured output &mdash; headings, tables with merged cells, track changes, comments.</div>
+        <div class="dp-demo-meta">
+          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
+        </div>
+      </a>
+
+      <a href="https://sunholo.com/ailang-demos/extractor.html" class="dp-demo-card dp-demo-card--extract" target="_blank" rel="noopener">
+        <span class="dp-demo-arrow">&rarr;</span>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></div>
+        <div class="dp-demo-name">Document Extractor</div>
+        <div class="dp-demo-desc">Upload any document, define a schema (or let AI detect one), and get validated, type-safe extraction results. 7 presets including invoice, receipt, and contract.</div>
+        <div class="dp-demo-meta">
+          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
+          <span class="dp-demo-badge dp-demo-badge--provider">Gemini</span>
+          <span class="dp-demo-badge dp-demo-badge--api">API key</span>
+        </div>
+      </a>
+
+      <a href="https://sunholo.com/ailang-demos/contracts-ai.html" class="dp-demo-card dp-demo-card--contracts" target="_blank" rel="noopener">
+        <span class="dp-demo-arrow">&rarr;</span>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg></div>
+        <div class="dp-demo-name">AI + Contracts</div>
+        <div class="dp-demo-desc">AI extracts structured data from documents, then AILANG contracts validate every field before returning results. Deterministic validation of stochastic AI output.</div>
+        <div class="dp-demo-meta">
+          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
+          <span class="dp-demo-badge dp-demo-badge--provider">Gemini</span>
+          <span class="dp-demo-badge dp-demo-badge--api">API key</span>
+        </div>
+      </a>
+
+      <a href="https://sunholo.com/ailang-demos/verify.html" class="dp-demo-card dp-demo-card--verify" target="_blank" rel="noopener">
+        <span class="dp-demo-arrow">&rarr;</span>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <div class="dp-demo-name">Z3 Verify</div>
+        <div class="dp-demo-desc">Prove contracts correct at compile time &mdash; no tests needed. 42 contracts verified, 4 bugs caught across cloud billing, access control, and scheduling.</div>
+        <div class="dp-demo-meta">
+          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
+        </div>
+      </a>
+
+      <a href="https://sunholo.com/ailang-demos/streaming/voice_docparse/index.html" class="dp-demo-card dp-demo-card--voice" target="_blank" rel="noopener">
+        <span class="dp-demo-arrow">&rarr;</span>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-4"/><path d="M9.5 15.5a2.5 2.5 0 005 0V14a2.5 2.5 0 00-5 0"/></svg></div>
+        <div class="dp-demo-name">Voice DocParse</div>
+        <div class="dp-demo-desc">Upload a document and talk to it. Gemini Live bidirectional audio lets you ask questions about your documents conversationally.</div>
+        <div class="dp-demo-meta">
+          <span class="dp-demo-badge dp-demo-badge--ws">WebSocket</span>
+          <span class="dp-demo-badge dp-demo-badge--provider">Gemini Live</span>
+          <span class="dp-demo-badge dp-demo-badge--api">API key</span>
+        </div>
+      </a>
+    </div>
   </section>
 
   <hr class="dp-divider">
