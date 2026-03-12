@@ -110,7 +110,18 @@ pure func odpProcessFrameChild(node: XmlNode) -> [Block] {
 }
 
 -- Guess MIME type from image path
-pure func odpGuessMime(href: string) -> string {
+pure func odpGuessMime(href: string) -> string
+  tests [
+    ("media/image.png", "image/png"),
+    ("slide.jpg", "image/jpeg"),
+    ("slide.jpeg", "image/jpeg"),
+    ("icon.gif", "image/gif"),
+    ("diagram.svg", "image/svg+xml"),
+    ("scan.bmp", "image/bmp"),
+    ("photo.webp", "image/webp"),
+    ("unknown.xyz", "image/unknown")
+  ]
+{
   if endsWith(href, ".png") then "image/png"
   else if endsWith(href, ".jpg") || endsWith(href, ".jpeg") then "image/jpeg"
   else if endsWith(href, ".gif") then "image/gif"

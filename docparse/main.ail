@@ -52,11 +52,11 @@ import std/env (getArgs)
 --   ailang test docparse/services/docx_parser.ail
 --
 -- CAPABILITY BUDGETS:
---   IO @limit=200  - Console output for results (increased for page-by-page PDF parsing)
---   FS @limit=40   - File reads (ZIP entries) + output write (increased from 20 for complex DOCX with headers/footers)
+--   IO @limit=1000  - Console output for results (increased for page-by-page PDF parsing)
+--   FS @limit=100   - File reads (ZIP entries) + output write (increased from 20 for complex DOCX with headers/footers)
 --   AI @limit=30   - PDF page-by-page parsing + image descriptions + layout inference
 
-export func main() -> () ! {IO @limit=200, FS @limit=40, AI @limit=30, Env} {
+export func main() -> () ! {IO @limit=1000, FS @limit=100, AI @limit=30, Env} {
   println("=== DocParse: Universal Document Parsing ===");
   println("");
 

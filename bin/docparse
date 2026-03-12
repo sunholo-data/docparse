@@ -27,6 +27,13 @@ MODULES=(
   docparse/services/direct_ai_parser.ail
   docparse/services/layout_ai.ail
   docparse/services/output_formatter.ail
+  docparse/services/csv_parser.ail
+  docparse/services/markdown_parser.ail
+  docparse/services/html_parser.ail
+  docparse/services/epub_parser.ail
+  docparse/services/odt_parser.ail
+  docparse/services/odp_parser.ail
+  docparse/services/ods_parser.ail
   docparse/main.ail
 )
 
@@ -34,6 +41,8 @@ TEST_MODULES=(
   docparse/services/format_router.ail
   docparse/services/zip_extract.ail
   docparse/services/docx_parser.ail
+  docparse/services/odt_parser.ail
+  docparse/services/odp_parser.ail
 )
 
 usage() {

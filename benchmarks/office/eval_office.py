@@ -1,8 +1,10 @@
-"""Office Structural Benchmark — DocParse's primary differentiator.
+"""DocParse Structural Benchmark — regression testing across all formats.
 
 Evaluates DocParse output against golden expected outputs on structural
-features that competitors miss: track changes, comments, headers/footers,
-merged cells, text boxes, speaker notes.
+features: track changes, comments, headers/footers, merged cells, text boxes,
+speaker notes, images, tables, and text content.
+
+Covers: DOCX, PPTX, XLSX, ODT, ODP, ODS, EPUB, HTML, CSV, Markdown.
 
 No API calls needed. Runs entirely locally, instantly.
 
@@ -307,7 +309,7 @@ def evaluate_file(test_file: Path, golden_file: Path) -> dict:
 
 def print_report(results: list[dict]) -> None:
     """Print a markdown-style report."""
-    print("\n# DocParse Office Structural Benchmark\n")
+    print("\n# DocParse Structural Benchmark\n")
     print(f"| File | Score | Time | Elements | Tables | Changes | Comments | Hdr/Ftr | TextBox | Jaccard |")
     print(f"|------|-------|------|----------|--------|---------|----------|---------|---------|---------|")
 
@@ -347,7 +349,7 @@ def print_report(results: list[dict]) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DocParse Office Structural Benchmark")
+    parser = argparse.ArgumentParser(description="DocParse Structural Benchmark")
     parser.add_argument("--json", action="store_true", help="Output JSON instead of markdown")
     parser.add_argument("--file", help="Evaluate a single file")
     args = parser.parse_args()
@@ -360,7 +362,7 @@ def main():
     else:
         test_files = sorted(
             p for p in TEST_DIR.iterdir()
-            if p.suffix in (".docx", ".pptx", ".xlsx")
+            if p.suffix in (".docx", ".pptx", ".xlsx", ".odt", ".odp", ".ods", ".epub", ".html", ".csv", ".md")
         )
 
     results = []
