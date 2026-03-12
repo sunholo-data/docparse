@@ -17,6 +17,7 @@ import std/option (Some, None)
 -- "video"      = MP4, MOV, etc (AI-only parsing)
 -- "csv"        = CSV/TSV (delimited data → TableBlock)
 -- "markdown"   = Markdown (structured text → Block ADT)
+-- "html"       = HTML/XHTML (XML-based structure parsing)
 -- "text"       = Plain text, XML, etc
 -- "unknown"    = Unrecognized format
 
@@ -24,7 +25,7 @@ export pure func detectFormat(ext: string) -> string
   ensures {
     result == "zip-office" || result == "pdf" || result == "image" ||
     result == "audio" || result == "video" || result == "csv" ||
-    result == "markdown" || result == "text" || result == "unknown"
+    result == "markdown" || result == "html" || result == "text" || result == "unknown"
   }
   tests [
     ("docx", "zip-office"),
@@ -44,6 +45,9 @@ export pure func detectFormat(ext: string) -> string
     ("tsv", "csv"),
     ("md", "markdown"),
     ("markdown", "markdown"),
+    ("html", "html"),
+    ("htm", "html"),
+    ("xhtml", "html"),
     ("txt", "text"),
     ("xml", "text"),
     ("foo", "unknown")
@@ -60,7 +64,8 @@ export pure func detectFormat(ext: string) -> string
           ext == "3gpp" then "video"
   else if ext == "csv" || ext == "tsv" then "csv"
   else if ext == "md" || ext == "markdown" then "markdown"
-  else if ext == "txt" || ext == "html" || ext == "xml" || ext == "json" then "text"
+  else if ext == "html" || ext == "htm" || ext == "xhtml" then "html"
+  else if ext == "txt" || ext == "xml" || ext == "json" then "text"
   else "unknown"
 }
 
@@ -111,11 +116,12 @@ export pure func needsAI(format: string) -> bool
     ("video", true),
     ("csv", false),
     ("markdown", false),
+    ("html", false),
     ("text", false),
     ("unknown", true)
   ]
 {
-  if format == "zip-office" || format == "text" || format == "csv" || format == "markdown" then false
+  if format == "zip-office" || format == "text" || format == "csv" || format == "markdown" || format == "html" then false
   else true
 }
 
@@ -130,6 +136,7 @@ export pure func strategyDescription(format: string) -> string
     ("video", "AI multimodal extraction (visual + audio understanding)"),
     ("csv", "Delimiter-based parsing (pure AILANG)"),
     ("markdown", "Markdown structure parsing (pure AILANG)"),
+    ("html", "XML-based HTML structure parsing (pure AILANG)"),
     ("text", "Direct text reading"),
     ("unknown", "AI multimodal extraction (best effort)")
   ]
@@ -141,6 +148,7 @@ export pure func strategyDescription(format: string) -> string
   else if format == "video" then "AI multimodal extraction (visual + audio understanding)"
   else if format == "csv" then "Delimiter-based parsing (pure AILANG)"
   else if format == "markdown" then "Markdown structure parsing (pure AILANG)"
+  else if format == "html" then "XML-based HTML structure parsing (pure AILANG)"
   else if format == "text" then "Direct text reading"
   else "AI multimodal extraction (best effort)"
 }
