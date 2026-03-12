@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ailang check *)",
+      "Bash(ailang run *)",
+      "Bash(ailang verify *)",
+      "Bash(ailang docs *)",
+      "Bash(uv run *)",
+      "Bash(bash benchmarks/*)"
+    ]
+  }
+}
