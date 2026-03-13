@@ -246,7 +246,7 @@ def evaluate_file(test_file: Path, golden_file: Path) -> dict:
         ["ailang", "run", "--entry", "main", "--caps", "IO,FS,Env",
          "docparse/main.ail", str(test_file)],
         capture_output=True, text=True, cwd=str(REPO_DIR),
-        timeout=30,
+        timeout=120,
     )
     elapsed_ms = round((time.time() - start) * 1000, 1)
 

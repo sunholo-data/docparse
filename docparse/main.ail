@@ -56,7 +56,7 @@ import std/env (getArgs)
 --   FS @limit=100   - File reads (ZIP entries) + output write (increased from 20 for complex DOCX with headers/footers)
 --   AI @limit=30   - PDF page-by-page parsing + image descriptions + layout inference
 
-export func main() -> () ! {IO @limit=1000, FS @limit=100, AI @limit=30, Env} {
+export func main() -> () ! {IO @limit=50000, FS @limit=5000, AI @limit=30, Env} {
   println("=== DocParse: Universal Document Parsing ===");
   println("");
 

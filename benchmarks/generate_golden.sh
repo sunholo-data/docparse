@@ -23,11 +23,6 @@ for f in "$TEST_DIR"/*.docx "$TEST_DIR"/*.pptx "$TEST_DIR"/*.xlsx \
   [ -f "$f" ] || continue
   fname="$(basename "$f")"
 
-  # Skip very large files that exhaust IO budget
-  case "$fname" in
-    gutenberg_*) echo "  $fname ... SKIP (nondeterministic, runtime bug)"; continue ;;
-  esac
-
   echo -n "  $fname ... "
 
   if ailang run --entry main --caps IO,FS,Env docparse/main.ail "$f" > /dev/null 2>&1; then
