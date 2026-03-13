@@ -1,7 +1,7 @@
 module docparse/services/epub_parser
 
 import std/zip (listEntries, readEntry)
-import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag)
+import std/xml (parse, findAll, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
 import std/result (Ok, Err)
 import std/option (Some, None, getOrElse)
 import std/string (length, trim, endsWith, contains, startsWith, split, find, substring)
@@ -141,12 +141,11 @@ pure func epubExtractSpine(opfXml: string, opfDir: string) -> [string] {
     Ok(root) => {
       -- Build manifest: find all <item> elements
       let items = findAll(root, "item");
-      -- Find spine itemrefs
-      let itemrefs = findAll(root, "itemref");
+      -- Find spine itemrefs (bulk attr extraction)
+      let spineIds = findAllAttrs(root, "itemref", "idref");
 
-      if listLength(itemrefs) > 0 then {
+      if listLength(spineIds) > 0 then {
         -- Use spine order: look up each idref in manifest
-        let spineIds = map(\iref. getOrElse(getAttr(iref, "idref"), ""), itemrefs);
         let hrefs = flatMap(\sid. epubLookupManifest(items, sid, opfDir), spineIds);
         -- Filter to only XHTML/HTML content
         filter(epubIsContentFile, hrefs)

@@ -2,7 +2,7 @@ module docparse/main
 
 import std/fs (readFile, writeFile, fileExists)
 import std/json (encode)
-import std/string (length)
+import std/string (length, intToStr, floatToStr, toLower, split, contains)
 import std/list (last, concat, any)
 import std/option (Some, None)
 import std/result (Ok, Err)
@@ -22,12 +22,13 @@ import docparse/services/odt_parser (parseOdt, parseOdtMetadata, parseOdtHeaders
 import docparse/services/odp_parser (parseOdp, parseOdpMetadata)
 import docparse/services/ods_parser (parseOds, parseOdsMetadata)
 import docparse/services/output_formatter (formatResult, printSummary, printBlocks, renderMarkdown)
-import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag)
+import docparse/services/eval (evalMain, evalNormalizeJson, evalJaccard, evalComputeScore)
+import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
 import std/zip (listEntries, readEntry, readEntryBytes)
 import std/ai (call)
 import std/io (println)
-import std/math (intToFloat)
-import std/env (getArgs)
+import std/math (intToFloat, floatToInt)
+import std/env (getArgs, getEnvOr)
 
 -- DocParse: Universal Document Parsing in AILANG
 --
@@ -796,16 +797,21 @@ func parseTextDocument(filepath: string) -> () ! {IO, FS} {
 }
 
 -- Write all output files: JSON, markdown, and optional AI summary
-func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bool) -> () ! {IO, FS, AI} {
+-- Respects DOCPARSE_OUTPUT_DIR env var for output path (default: docparse/data)
+func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bool) -> () ! {IO, FS, AI, Env} {
+  let outDir = getEnvOr("DOCPARSE_OUTPUT_DIR", "docparse/data");
+
   -- Write JSON
   let jsonOutput = formatResult(result);
-  writeFile("docparse/data/output.json", jsonOutput);
-  println("JSON output written to docparse/data/output.json");
+  let jsonPath = outDir ++ "/output.json";
+  writeFile(jsonPath, jsonOutput);
+  println("JSON output written to " ++ jsonPath);
 
   -- Write markdown (LLM-ready text)
   let markdown = renderMarkdown(doc);
-  writeFile("docparse/data/output.md", markdown);
-  println("Markdown output written to docparse/data/output.md");
+  let mdPath = outDir ++ "/output.md";
+  writeFile(mdPath, markdown);
+  println("Markdown output written to " ++ mdPath);
 
   -- Optional: AI summary
   if doSummarize then {
@@ -819,8 +825,9 @@ func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bo
     println(summary);
     println("");
     -- Write summary to file
-    writeFile("docparse/data/output_summary.txt", summary);
-    println("Summary written to docparse/data/output_summary.txt")
+    let summaryPath = outDir ++ "/output_summary.txt";
+    writeFile(summaryPath, summary);
+    println("Summary written to " ++ summaryPath)
   }
   else ();
 

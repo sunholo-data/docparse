@@ -1,6 +1,6 @@
 module docparse/services/docx_parser
 
-import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag)
+import std/xml (parse, findAll, findAllTexts, findFirst, getText, getAttr, getChildren, getTag)
 import std/option (Some, None, flatMap as optFlatMap, map as optMap, getOrElse)
 import std/result (Ok, Err)
 import std/string (contains, length, trim, stringToInt, join)
@@ -479,8 +479,7 @@ pure func docxExtractCommentTexts(paragraphs: [XmlNode]) -> [string] =
   match paragraphs {
     [] => [],
     p :: rest => {
-      let tNodes = findAll(p, "w:t");
-      let pText = join("", map(getText, tNodes));
+      let pText = join("", findAllTexts(p, "w:t"));
       if length(pText) > 0
       then pText :: docxExtractCommentTexts(rest)
       else docxExtractCommentTexts(rest)

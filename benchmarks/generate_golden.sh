@@ -10,6 +10,8 @@ GOLDEN_DIR="$SCRIPT_DIR/office/golden"
 TEST_DIR="$REPO_DIR/data/test_files"
 OUTPUT_JSON="$REPO_DIR/docparse/data/output.json"
 
+TIMEOUT=${TIMEOUT:-60}  # Per-file timeout in seconds (override with TIMEOUT=120)
+
 mkdir -p "$GOLDEN_DIR"
 
 cd "$REPO_DIR"
@@ -17,15 +19,28 @@ cd "$REPO_DIR"
 PASS=0
 FAIL=0
 
+# run_with_timeout CMD... — runs command with $TIMEOUT second limit (portable macOS/Linux)
+run_with_timeout() {
+  "$@" &
+  local pid=$!
+  (sleep "$TIMEOUT" && kill "$pid" 2>/dev/null) &
+  local watchdog=$!
+  wait "$pid" 2>/dev/null
+  local rc=$?
+  kill "$watchdog" 2>/dev/null
+  wait "$watchdog" 2>/dev/null
+  return $rc
+}
+
 for f in "$TEST_DIR"/*.docx "$TEST_DIR"/*.pptx "$TEST_DIR"/*.xlsx \
          "$TEST_DIR"/*.odt "$TEST_DIR"/*.odp "$TEST_DIR"/*.ods \
-         "$TEST_DIR"/*.epub "$TEST_DIR"/*.html "$TEST_DIR"/*.csv "$TEST_DIR"/*.md; do
+         "$TEST_DIR"/*.epub "$TEST_DIR"/*.html "$TEST_DIR"/*.csv "$TEST_DIR"/*.tsv "$TEST_DIR"/*.md; do
   [ -f "$f" ] || continue
   fname="$(basename "$f")"
 
   echo -n "  $fname ... "
 
-  if ailang run --entry main --caps IO,FS,Env docparse/main.ail "$f" > /dev/null 2>&1; then
+  if run_with_timeout ailang run --entry main --caps IO,FS,Env docparse/main.ail "$f" > /dev/null 2>&1; then
     if [ -f "$OUTPUT_JSON" ]; then
       cp "$OUTPUT_JSON" "$GOLDEN_DIR/${fname}.json"
       echo "OK"
@@ -35,7 +50,7 @@ for f in "$TEST_DIR"/*.docx "$TEST_DIR"/*.pptx "$TEST_DIR"/*.xlsx \
       FAIL=$((FAIL + 1))
     fi
   else
-    echo "FAIL (parse error)"
+    echo "FAIL (parse error or timeout)"
     FAIL=$((FAIL + 1))
   fi
 done

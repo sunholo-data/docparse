@@ -250,6 +250,10 @@ def evaluate_file(test_file: Path, golden_file: Path) -> dict:
     )
     elapsed_ms = round((time.time() - start) * 1000, 1)
 
+    # Check if the parser succeeded
+    if result.returncode != 0:
+        return {"file": fname, "status": "FAIL", "error": f"parse error (exit {result.returncode})", "time_ms": elapsed_ms}
+
     # Load actual output
     if not OUTPUT_JSON.exists():
         return {"file": fname, "status": "FAIL", "error": "no output.json", "time_ms": elapsed_ms}
@@ -362,7 +366,7 @@ def main():
     else:
         test_files = sorted(
             p for p in TEST_DIR.iterdir()
-            if p.suffix in (".docx", ".pptx", ".xlsx", ".odt", ".odp", ".ods", ".epub", ".html", ".csv", ".md")
+            if p.suffix in (".docx", ".pptx", ".xlsx", ".odt", ".odp", ".ods", ".epub", ".html", ".csv", ".tsv", ".md")
         )
 
     results = []

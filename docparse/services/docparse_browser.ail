@@ -10,7 +10,7 @@ module docparse/services/docparse_browser
 -- This is NOT a standalone module — it requires all docparse modules
 -- to be loaded in the WASM REPL first (in dependency order).
 
-import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren)
+import std/xml (parse, findAll, findAllTexts, findFirst, getText, getAttr, getChildren)
 import std/json (encode, decode, jo, kv, js, jb, ja, jnum, asArray)
 import std/string (length, join)
 import std/ai (callJsonSimple)
@@ -175,8 +175,7 @@ pure func extractCommentTexts(paragraphs: [XmlNode]) -> [string] =
   match paragraphs {
     [] => [],
     p :: rest => {
-      let tNodes = findAll(p, "w:t");
-      let pText = join("", map(getText, tNodes));
+      let pText = join("", findAllTexts(p, "w:t"));
       if length(pText) > 0
       then pText :: extractCommentTexts(rest)
       else extractCommentTexts(rest)

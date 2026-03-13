@@ -34,6 +34,7 @@ MODULES=(
   docparse/services/odt_parser.ail
   docparse/services/odp_parser.ail
   docparse/services/ods_parser.ail
+  docparse/services/eval.ail
   docparse/main.ail
 )
 
@@ -67,9 +68,10 @@ Options:
   --verify          Enable runtime contract verification
   --budget-report   Show capability budget usage after run
   --output-dir DIR  Copy output files to DIR after parsing
-  --check           Type-check all 10 modules (no file needed)
+  --check           Type-check all modules (no file needed)
   --test            Run all inline tests (no file needed)
   --prove           Static Z3 contract verification (no file needed, requires z3)
+  --eval            Run AILANG eval on all golden files (no file needed)
   -h, --help        Show this help
 
 Supported formats:
@@ -112,6 +114,59 @@ do_test() {
     echo "--- $(basename "$mod") ---"
     ailang test "$mod"
   done
+}
+
+do_eval() {
+  echo "Running AILANG eval on all golden files..."
+  local golden_dir="benchmarks/office/golden"
+  local test_dir="data/test_files"
+  local pass=0
+  local fail=0
+  local total=0
+  local eval_tmpdir
+  eval_tmpdir="$(mktemp -d)"
+  trap "rm -rf '$eval_tmpdir'" EXIT
+
+  for golden in "$golden_dir"/*.json; do
+    [ -f "$golden" ] || continue
+    local fname
+    fname="$(basename "$golden" .json)"
+    [ -f "$test_dir/$fname" ] || continue
+    total=$((total + 1))
+
+    echo -n "  $fname ... "
+
+    # Parse into per-file temp output (avoid shared output.json collision)
+    local per_file_dir="$eval_tmpdir/$fname"
+    mkdir -p "$per_file_dir"
+    local output_json="$per_file_dir/output.json"
+
+    # Parse with DOCPARSE_OUTPUT_DIR so output goes directly to per-file dir
+    if DOCPARSE_OUTPUT_DIR="$per_file_dir" ailang run --entry main --caps IO,FS,Env docparse/main.ail "$test_dir/$fname" > /dev/null 2>&1; then
+      if [ -f "$output_json" ]; then
+        local eval_out
+        eval_out=$(ailang run --entry evalMain --caps IO,FS,Env docparse/services/eval.ail "$golden" "$output_json" 2>&1)
+        if echo "$eval_out" | grep -q "Score: 100"; then
+          echo "100%"
+          pass=$((pass + 1))
+        else
+          echo "FAIL"
+          echo "$eval_out" | head -10
+          fail=$((fail + 1))
+        fi
+      else
+        echo "FAIL (no output.json)"
+        fail=$((fail + 1))
+      fi
+    else
+      echo "FAIL (parse error)"
+      fail=$((fail + 1))
+    fi
+  done
+
+  rm -rf "$eval_tmpdir"
+  echo ""
+  echo "AILANG eval: $pass/$total passed ($fail failures)"
 }
 
 do_prove() {
@@ -164,6 +219,11 @@ while [ $# -gt 0 ]; do
     --prove)
       cd "$PROJECT_DIR"
       do_prove
+      exit 0
+      ;;
+    --eval)
+      cd "$PROJECT_DIR"
+      do_eval
       exit 0
       ;;
     --describe)

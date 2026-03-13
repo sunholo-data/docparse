@@ -1,6 +1,6 @@
 module docparse/services/xlsx_parser
 
-import std/xml (parse, findAll, findFirst, getText, getAttr, getChildren, getTag)
+import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
 import std/option (Some, None, flatMap as optFlatMap, map as optMap, getOrElse)
 import std/result (Ok, Err)
 import std/string (contains, length, trim, stringToInt, join, startsWith, substring)
@@ -90,8 +90,7 @@ func readWorkbookSheetNames(filepath: string) -> [string] ! {FS} {
   if length(xml) == 0 then []
   else match parse(xml) {
     Ok(root) => {
-      let sheets = findAll(root, "sheet");
-      map(\s. getOrElse(getAttr(s, "name"), ""), sheets)
+      findAllAttrs(root, "sheet", "name")
     },
     Err(_) => []
   }
