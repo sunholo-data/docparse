@@ -1,6 +1,6 @@
 module docparse/services/xlsx_parser
 
-import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
+import std/xml (parse, parseElements, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
 import std/option (Some, None, flatMap as optFlatMap, map as optMap, getOrElse)
 import std/result (Ok, Err)
 import std/string (contains, length, trim, stringToInt, join, startsWith, substring)
@@ -120,20 +120,22 @@ func parseSheetsWithNames(filepath: string, entries: [string], sharedStrings: [s
 -- Emits a HeadingBlock with the sheet name followed by the table data.
 export pure func parseSheetXml(xml: string, sharedStrings: [string], sheetName: string) -> [Block] {
   if length(xml) == 0 then []
-  else match parse(xml) {
-    Ok(root) => {
-      let parsedRows = extractSheetRows(root, sharedStrings);
-      let heading = HeadingBlock({text: xlsxCleanSheetName(sheetName), level: 1});
-      match parsedRows {
-        [] => [heading],
-        firstRow :: dataRows => {
-          let tableBlock = TableBlock({rows: dataRows, headers: firstRow});
-          let section = SectionBlock({kind: "sheet", blocks: [heading, tableBlock]});
-          [section]
-        }
+  else {
+    -- Use parseElements for streaming: only builds subtrees for <row> elements
+    -- O(largest row) memory instead of O(entire document)
+    let parsedRows = match parseElements(xml, "row", xlsxMaxRows) {
+      Ok(rowNodes) => parseXlsxRows(rowNodes, sharedStrings),
+      Err(_) => []
+    };
+    let heading = HeadingBlock({text: xlsxCleanSheetName(sheetName), level: 1});
+    match parsedRows {
+      [] => [heading],
+      firstRow :: dataRows => {
+        let tableBlock = TableBlock({rows: dataRows, headers: firstRow});
+        let section = SectionBlock({kind: "sheet", blocks: [heading, tableBlock]});
+        [section]
       }
-    },
-    Err(_) => []
+    }
   }
 }
 
@@ -178,20 +180,7 @@ pure func xlsxFormatSheetName(name: string) -> string {
 }
 
 -- Max rows to parse per sheet (prevents CPU hang on pathological files like poi_many_merges.xlsx: 50K rows)
-let xlsxMaxRows = 10000
-
--- Extract all rows from sheetData (capped at xlsxMaxRows)
--- Uses getChildren (O(1) per child) instead of findAll (recursive tree walk) for performance
-pure func extractSheetRows(root: XmlNode, sharedStrings: [string]) -> [[TableCell]] =
-  getOrElse(
-    optMap(\sheetData.
-      parseXlsxRows(take(xlsxMaxRows, xlsxFilterRows(getChildren(sheetData))), sharedStrings),
-      findFirst(root, "sheetData")),
-    [])
-
--- Filter children to only <row> elements (getChildren returns all direct children)
-pure func xlsxFilterRows(nodes: [XmlNode]) -> [XmlNode] =
-  filter(\n. getTag(n) == "row", nodes)
+let xlsxMaxRows = 2000
 
 -- Parse all rows
 pure func parseXlsxRows(rows: [XmlNode], sharedStrings: [string]) -> [[TableCell]] =
