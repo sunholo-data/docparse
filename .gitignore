@@ -3,6 +3,9 @@ docparse/data/*.json
 docparse/data/*.md
 docparse/data/*.txt
 
+# AILANG compiler cache
+.ailang/
+
 # Python
 __pycache__/
 *.pyc
