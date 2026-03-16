@@ -1,6 +1,6 @@
 module docparse/services/markdown_parser
 
-import std/string (split, trim, length, startsWith, substring, find, contains)
+import std/string (split, trim, length, startsWith, substring, find, contains, charAt)
 import std/list (map, filter, foldl, concat, reverse, length as listLength)
 import std/option (Some, None)
 import docparse/types/document (Block, HeadingBlock, TextBlock, ListBlock, TableBlock, TableCell, simpleCell)
@@ -216,11 +216,13 @@ pure func mdAllDigits(s: string) -> bool
   ensures { length(s) == 0 || result == true || result == false }
 {
   if length(s) == 0 then false
-  else
-    let c = substring(s, 0, 1) in
-    if length(s) == 1 then mdIsDigit(c)
-    else mdIsDigit(c) && mdAllDigits(substring(s, 1, length(s)))
+  else mdAllDigitsFrom(s, 0)
 }
+
+-- Check digits from index i using charAt (avoids substring allocation)
+pure func mdAllDigitsFrom(s: string, i: int) -> bool =
+  if i >= length(s) then true
+  else mdIsDigit(charAt(s, i)) && mdAllDigitsFrom(s, i + 1)
 
 -- Check if a single character is a digit
 -- Contract: only returns true for single-char strings
