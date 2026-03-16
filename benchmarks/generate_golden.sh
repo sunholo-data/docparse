@@ -10,7 +10,7 @@ GOLDEN_DIR="$SCRIPT_DIR/office/golden"
 TEST_DIR="$REPO_DIR/data/test_files"
 OUTPUT_JSON="$REPO_DIR/docparse/data/output.json"
 
-TIMEOUT=${TIMEOUT:-60}  # Per-file timeout in seconds (override with TIMEOUT=120)
+TIMEOUT=${TIMEOUT:-120}  # Per-file timeout in seconds (override with TIMEOUT=180)
 
 mkdir -p "$GOLDEN_DIR"
 

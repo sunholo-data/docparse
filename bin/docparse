@@ -127,39 +127,54 @@ do_eval() {
   eval_tmpdir="$(mktemp -d)"
   trap "rm -rf '$eval_tmpdir'" EXIT
 
+  # Collect files to parse
+  local batch_files=()
+  local batch_names=()
   for golden in "$golden_dir"/*.json; do
     [ -f "$golden" ] || continue
     local fname
     fname="$(basename "$golden" .json)"
     [ -f "$test_dir/$fname" ] || continue
     total=$((total + 1))
+    batch_files+=("$test_dir/$fname")
+    batch_names+=("$fname")
+    mkdir -p "$eval_tmpdir/$fname"
+  done
 
-    echo -n "  $fname ... "
-
-    # Parse into per-file temp output (avoid shared output.json collision)
+  # Phase 1: Parse all files
+  # Can't use --batch because each file needs its own DOCPARSE_OUTPUT_DIR
+  echo "  Phase 1: Parsing $total files..."
+  local parse_fail=0
+  for i in "${!batch_files[@]}"; do
+    local fname="${batch_names[$i]}"
     local per_file_dir="$eval_tmpdir/$fname"
-    mkdir -p "$per_file_dir"
-    local output_json="$per_file_dir/output.json"
+    if ! DOCPARSE_OUTPUT_DIR="$per_file_dir" ailang run --entry main --caps IO,FS,Env --max-recursion-depth 50000 docparse/main.ail "${batch_files[$i]}" > /dev/null 2>&1; then
+      echo "    PARSE FAIL: $fname"
+      parse_fail=$((parse_fail + 1))
+    fi
+  done
+  echo "  Phase 1: $((total - parse_fail))/$total parsed"
 
-    # Parse with DOCPARSE_OUTPUT_DIR so output goes directly to per-file dir
-    if DOCPARSE_OUTPUT_DIR="$per_file_dir" ailang run --entry main --caps IO,FS,Env --max-recursion-depth 50000 docparse/main.ail "$test_dir/$fname" > /dev/null 2>&1; then
-      if [ -f "$output_json" ]; then
-        local eval_out
-        eval_out=$(ailang run --entry evalMain --caps IO,FS,Env docparse/services/eval.ail "$golden" "$output_json" 2>&1)
-        if echo "$eval_out" | grep -q "Score: 100"; then
-          echo "100%"
-          pass=$((pass + 1))
-        else
-          echo "FAIL"
-          echo "$eval_out" | head -10
-          fail=$((fail + 1))
-        fi
-      else
-        echo "FAIL (no output.json)"
-        fail=$((fail + 1))
-      fi
+  # Phase 2: Eval all files individually
+  # (batch mode only supports 1 arg per invocation, eval needs 2: golden + actual)
+  echo "  Phase 2: Evaluating..."
+  for golden in "$golden_dir"/*.json; do
+    [ -f "$golden" ] || continue
+    local fname
+    fname="$(basename "$golden" .json)"
+    local output_json="$eval_tmpdir/$fname/output.json"
+    if [ ! -f "$output_json" ]; then
+      fail=$((fail + 1))
+      continue
+    fi
+    local eval_out
+    eval_out=$(ailang run --entry evalMain --caps IO,FS,Env docparse/services/eval.ail "$golden" "$output_json" 2>&1)
+    if echo "$eval_out" | grep -q "Score: 100"; then
+      echo "    $fname: 100%"
+      pass=$((pass + 1))
     else
-      echo "FAIL (parse error)"
+      echo "    $fname: FAIL"
+      echo "$eval_out" | head -5
       fail=$((fail + 1))
     fi
   done
