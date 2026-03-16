@@ -4,7 +4,7 @@ import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, 
 import std/option (Some, None, flatMap as optFlatMap, map as optMap, getOrElse)
 import std/result (Ok, Err)
 import std/string (contains, length, trim, stringToInt, join, startsWith, substring)
-import std/list (map, flatMap, nth, length as listLength, concat)
+import std/list (map, flatMap, filter, nth, length as listLength, concat, take)
 import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ListBlock, ImageBlock, SectionBlock, TableCell, DocMetadata, emptyMetadata, simpleCell)
 import docparse/services/zip_extract (readCoreProperties, findSheetEntries, readZipEntry)
 
@@ -177,13 +177,21 @@ pure func xlsxFormatSheetName(name: string) -> string {
   else name
 }
 
--- Extract all rows from sheetData
+-- Max rows to parse per sheet (prevents CPU hang on pathological files like poi_many_merges.xlsx: 50K rows)
+let xlsxMaxRows = 10000
+
+-- Extract all rows from sheetData (capped at xlsxMaxRows)
+-- Uses getChildren (O(1) per child) instead of findAll (recursive tree walk) for performance
 pure func extractSheetRows(root: XmlNode, sharedStrings: [string]) -> [[TableCell]] =
   getOrElse(
     optMap(\sheetData.
-      parseXlsxRows(findAll(sheetData, "row"), sharedStrings),
+      parseXlsxRows(take(xlsxMaxRows, xlsxFilterRows(getChildren(sheetData))), sharedStrings),
       findFirst(root, "sheetData")),
     [])
+
+-- Filter children to only <row> elements (getChildren returns all direct children)
+pure func xlsxFilterRows(nodes: [XmlNode]) -> [XmlNode] =
+  filter(\n. getTag(n) == "row", nodes)
 
 -- Parse all rows
 pure func parseXlsxRows(rows: [XmlNode], sharedStrings: [string]) -> [[TableCell]] =
