@@ -4,7 +4,7 @@ import std/json (decode, get, getString, getArray, getInt, getBool, asString, as
 import std/option (Some, None, getOrElse, map as optMap)
 import std/result (Ok, Err)
 import std/string (length, trim, toLower, split, join, contains, intToStr, floatToStr, words as splitWords)
-import std/list (map, flatMap, filter, concat, length as listLength, member, dedup, intersect, union)
+import std/list (map, flatMap, filter, concat, length as listLength, member, dedup, intersect, union, take)
 import std/math (intToFloat)
 import std/fs (readFile)
 import std/io (println)
@@ -252,9 +252,14 @@ pure func evalIsCellMerged(cell: Json) -> bool =
 pure func evalTokenize(text: string) -> [string] =
   splitWords(toLower(text))
 
--- Collect all unique words from a list of elements
+-- Max raw words before dedup. dedup is O(n²) on lists, so cap input
+-- to keep eval fast on large docs (Moby Dick has 200K+ words).
+-- 5000 raw words ≈ first ~20 pages, statistically representative for Jaccard.
+let evalMaxRawWords = 5000
+
+-- Collect unique words from elements (cap raw words before dedup to avoid O(n²) blowup)
 pure func evalCollectWords(elements: [EvalElement]) -> [string] =
-  dedup(flatMap(\el. evalTokenize(el.elText), elements))
+  dedup(take(evalMaxRawWords, flatMap(\el. evalTokenize(el.elText), elements)))
 
 -- ================================================================
 -- Jaccard Similarity
