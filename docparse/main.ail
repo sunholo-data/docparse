@@ -214,7 +214,7 @@ func parseWordDocument(filepath: string, useAI: bool, doSummarize: bool) -> () !
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse a PowerPoint (PPTX) document
@@ -283,7 +283,7 @@ func parsePowerPointDocument(filepath: string, useAI: bool, doSummarize: bool) -
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse an Excel (XLSX) document
@@ -323,7 +323,7 @@ func parseExcelDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse a PDF document (AI-powered extraction)
@@ -365,7 +365,7 @@ func parsePdfDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI} 
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse an image file (AI-powered document extraction)
@@ -410,7 +410,7 @@ func parseImageDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   println("");
 
   -- Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Determine MIME type from image extension
@@ -459,7 +459,7 @@ func parseAudioDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   println("");
 
   -- Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Determine MIME type from audio extension
@@ -507,7 +507,7 @@ func parseVideoDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   println("");
 
   -- Write outputs
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Determine MIME type from video extension
@@ -557,7 +557,7 @@ func parseCsvDocument(filepath: string, ext: string) -> () ! {IO, FS, AI} {
   printBlocks(blocks);
   println("");
 
-  writeOutputs(doc, result, false)
+  writeOutputs(doc, result, false, filepath)
 }
 
 -- Parse a Markdown document (pure AILANG, no dependencies)
@@ -591,7 +591,7 @@ func parseMarkdownDocument(filepath: string) -> () ! {IO, FS, AI} {
   printBlocks(blocks);
   println("");
 
-  writeOutputs(doc, result, false)
+  writeOutputs(doc, result, false, filepath)
 }
 
 -- Parse an EPUB document (ZIP of XHTML, pure AILANG)
@@ -651,7 +651,7 @@ func parseEpubDocument(filepath: string, useAI: bool, doSummarize: bool) -> () !
   printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse an ODF document (ODT/ODP/ODS — pure AILANG, ZIP + ODF XML)
@@ -728,7 +728,7 @@ func parseOdfDocument(filepath: string, ext: string, useAI: bool, doSummarize: b
   printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse an HTML/XHTML document (pure AILANG, XML-based)
@@ -784,7 +784,7 @@ func parseHtmlDocument(filepath: string, useAI: bool, doSummarize: bool) -> () !
   printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, doSummarize)
+  writeOutputs(doc, result, doSummarize, filepath)
 }
 
 -- Parse a plain text document
@@ -797,19 +797,21 @@ func parseTextDocument(filepath: string) -> () ! {IO, FS} {
 }
 
 -- Write all output files: JSON, markdown, and optional AI summary
--- Respects DOCPARSE_OUTPUT_DIR env var for output path (default: docparse/data)
-func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bool) -> () ! {IO, FS, AI, Env} {
+-- Output filenames are derived from input: sample.docx → sample.docx.json, sample.docx.md
+-- Output dir: DOCPARSE_OUTPUT_DIR env var (default: docparse/data)
+func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bool, filepath: string) -> () ! {IO, FS, AI, Env} {
   let outDir = getEnvOr("DOCPARSE_OUTPUT_DIR", "docparse/data");
+  let basename = mainBasename(filepath);
 
   -- Write JSON
   let jsonOutput = formatResult(result);
-  let jsonPath = outDir ++ "/output.json";
+  let jsonPath = outDir ++ "/" ++ basename ++ ".json";
   writeFile(jsonPath, jsonOutput);
   println("JSON output written to " ++ jsonPath);
 
   -- Write markdown (LLM-ready text)
   let markdown = renderMarkdown(doc);
-  let mdPath = outDir ++ "/output.md";
+  let mdPath = outDir ++ "/" ++ basename ++ ".md";
   writeFile(mdPath, markdown);
   println("Markdown output written to " ++ mdPath);
 
@@ -825,7 +827,7 @@ func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bo
     println(summary);
     println("");
     -- Write summary to file
-    let summaryPath = outDir ++ "/output_summary.txt";
+    let summaryPath = outDir ++ "/" ++ basename ++ "_summary.txt";
     writeFile(summaryPath, summary);
     println("Summary written to " ++ summaryPath)
   }
@@ -833,6 +835,15 @@ func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bo
 
   println("");
   println("=== DocParse Complete ===")
+}
+
+-- Extract basename from a filepath: "/path/to/sample.docx" → "sample.docx"
+pure func mainBasename(filepath: string) -> string {
+  let parts = split(filepath, "/");
+  match last(parts) {
+    Some(name) => if length(name) > 0 then name else "output",
+    None => "output"
+  }
 }
 
 -- Check if parsed HTML blocks contain a parse error

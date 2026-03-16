@@ -138,22 +138,16 @@ do_eval() {
     total=$((total + 1))
     batch_files+=("$test_dir/$fname")
     batch_names+=("$fname")
-    mkdir -p "$eval_tmpdir/$fname"
   done
 
-  # Phase 1: Parse all files
-  # Can't use --batch because each file needs its own DOCPARSE_OUTPUT_DIR
-  echo "  Phase 1: Parsing $total files..."
-  local parse_fail=0
-  for i in "${!batch_files[@]}"; do
-    local fname="${batch_names[$i]}"
-    local per_file_dir="$eval_tmpdir/$fname"
-    if ! DOCPARSE_OUTPUT_DIR="$per_file_dir" ailang run --entry main --caps IO,FS,Env --max-recursion-depth 50000 docparse/main.ail "${batch_files[$i]}" > /dev/null 2>&1; then
-      echo "    PARSE FAIL: $fname"
-      parse_fail=$((parse_fail + 1))
-    fi
+  # Phase 1: Parse all files in batch (compile once, run N times)
+  echo "  Phase 1: Parsing $total files (batch mode)..."
+  DOCPARSE_OUTPUT_DIR="$eval_tmpdir" ailang run --batch --entry main --caps IO,FS,Env --max-recursion-depth 50000 docparse/main.ail "${batch_files[@]}" > /dev/null 2>&1 || true
+  local parsed=0
+  for fname in "${batch_names[@]}"; do
+    [ -f "$eval_tmpdir/${fname}.json" ] && parsed=$((parsed + 1))
   done
-  echo "  Phase 1: $((total - parse_fail))/$total parsed"
+  echo "  Phase 1: $parsed/$total parsed"
 
   # Phase 2: Eval all files individually
   # (batch mode only supports 1 arg per invocation, eval needs 2: golden + actual)
@@ -162,7 +156,7 @@ do_eval() {
     [ -f "$golden" ] || continue
     local fname
     fname="$(basename "$golden" .json)"
-    local output_json="$eval_tmpdir/$fname/output.json"
+    local output_json="$eval_tmpdir/${fname}.json"
     if [ ! -f "$output_json" ]; then
       fail=$((fail + 1))
       continue
@@ -368,8 +362,10 @@ if [ -n "$OUTPUT_DIR" ]; then
     "${CMD[@]}"
   fi
   # Copy output files to the requested directory
+  local input_basename
+  input_basename="$(basename "$FILE")"
   mkdir -p "$OUTPUT_DIR"
-  for f in "$OUTPUT_BASE"/output.json "$OUTPUT_BASE"/output.md "$OUTPUT_BASE"/output_summary.txt; do
+  for f in "$OUTPUT_BASE/${input_basename}.json" "$OUTPUT_BASE/${input_basename}.md" "$OUTPUT_BASE/${input_basename}_summary.txt"; do
     [ -f "$f" ] && cp "$f" "$OUTPUT_DIR/"
   done
   echo ""

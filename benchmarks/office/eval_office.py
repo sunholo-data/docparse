@@ -33,7 +33,7 @@ from normalize import NormalizedElement, normalize_ailang
 REPO_DIR = Path(__file__).parent.parent.parent
 GOLDEN_DIR = Path(__file__).parent / "golden"
 TEST_DIR = REPO_DIR / "data" / "test_files"
-OUTPUT_JSON = REPO_DIR / "docparse" / "data" / "output.json"
+OUTPUT_DIR = REPO_DIR / "docparse" / "data"
 
 
 # --- Feature checks ---
@@ -255,11 +255,12 @@ def evaluate_file(test_file: Path, golden_file: Path) -> dict:
     if result.returncode != 0:
         return {"file": fname, "status": "FAIL", "error": f"parse error (exit {result.returncode})", "time_ms": elapsed_ms}
 
-    # Load actual output
-    if not OUTPUT_JSON.exists():
-        return {"file": fname, "status": "FAIL", "error": "no output.json", "time_ms": elapsed_ms}
+    # Load actual output (filename-based: sample.docx → sample.docx.json)
+    output_json = OUTPUT_DIR / f"{fname}.json"
+    if not output_json.exists():
+        return {"file": fname, "status": "FAIL", "error": f"no {fname}.json", "time_ms": elapsed_ms}
 
-    with open(OUTPUT_JSON) as f:
+    with open(output_json) as f:
         actual_json = json.load(f)
     actual_els = normalize_ailang(actual_json)
 
