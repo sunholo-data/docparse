@@ -244,6 +244,7 @@ def evaluate_file(test_file: Path, golden_file: Path) -> dict:
     start = time.time()
     result = subprocess.run(
         ["ailang", "run", "--entry", "main", "--caps", "IO,FS,Env",
+         "--max-recursion-depth", "50000",
          "docparse/main.ail", str(test_file)],
         capture_output=True, text=True, cwd=str(REPO_DIR),
         timeout=120,

@@ -40,7 +40,7 @@ for f in "$TEST_DIR"/*.docx "$TEST_DIR"/*.pptx "$TEST_DIR"/*.xlsx \
 
   echo -n "  $fname ... "
 
-  if run_with_timeout ailang run --entry main --caps IO,FS,Env docparse/main.ail "$f" > /dev/null 2>&1; then
+  if run_with_timeout ailang run --entry main --caps IO,FS,Env --max-recursion-depth 50000 docparse/main.ail "$f" > /dev/null 2>&1; then
     if [ -f "$OUTPUT_JSON" ]; then
       cp "$OUTPUT_JSON" "$GOLDEN_DIR/${fname}.json"
       echo "OK"

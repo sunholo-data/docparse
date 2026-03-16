@@ -142,7 +142,7 @@ do_eval() {
     local output_json="$per_file_dir/output.json"
 
     # Parse with DOCPARSE_OUTPUT_DIR so output goes directly to per-file dir
-    if DOCPARSE_OUTPUT_DIR="$per_file_dir" ailang run --entry main --caps IO,FS,Env docparse/main.ail "$test_dir/$fname" > /dev/null 2>&1; then
+    if DOCPARSE_OUTPUT_DIR="$per_file_dir" ailang run --entry main --caps IO,FS,Env --max-recursion-depth 50000 docparse/main.ail "$test_dir/$fname" > /dev/null 2>&1; then
       if [ -f "$output_json" ]; then
         local eval_out
         eval_out=$(ailang run --entry evalMain --caps IO,FS,Env docparse/services/eval.ail "$golden" "$output_json" 2>&1)
@@ -304,7 +304,7 @@ if $USE_AI; then
   CAPS="IO,FS,Env,AI"
 fi
 
-CMD=(ailang run --entry main --caps "$CAPS")
+CMD=(ailang run --entry main --caps "$CAPS" --max-recursion-depth 50000)
 
 if $USE_AI; then
   CMD+=(--ai "$AI_MODEL")

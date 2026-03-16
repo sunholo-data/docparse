@@ -180,6 +180,8 @@ pure func xlsxFormatSheetName(name: string) -> string {
 }
 
 -- Max rows to parse per sheet (prevents CPU hang on pathological files like poi_many_merges.xlsx: 50K rows)
+-- Cap at 2000 rows: recursive map/flatMap is O(n²) at scale.
+-- 5K rows × 3 cells takes >60s, 2K finishes in ~28s. Needs iterative Go builtins.
 let xlsxMaxRows = 2000
 
 -- Parse all rows
