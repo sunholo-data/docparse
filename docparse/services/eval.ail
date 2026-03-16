@@ -3,8 +3,8 @@ module docparse/services/eval
 import std/json (decode, get, getString, getArray, getInt, getBool, asString, asArray, asObject, getObject, filterStrings)
 import std/option (Some, None, getOrElse, map as optMap)
 import std/result (Ok, Err)
-import std/string (length, trim, toLower, split, join, contains, intToStr, floatToStr)
-import std/list (map, flatMap, filter, concat, length as listLength)
+import std/string (length, trim, toLower, split, join, contains, intToStr, floatToStr, words as splitWords)
+import std/list (map, flatMap, filter, concat, length as listLength, member, dedup, intersect, union)
 import std/math (intToFloat)
 import std/fs (readFile)
 import std/io (println)
@@ -245,48 +245,16 @@ pure func evalIsCellMerged(cell: Json) -> bool =
   }
 
 -- ================================================================
--- Set Operations (no Set type — use lists + O(n²) ops)
+-- Tokenization (uses std/string.words + std/list.dedup)
 -- ================================================================
 
--- Check membership (recursive, avoids curried lambda issue)
-pure func evalMember(x: string, xs: [string]) -> bool =
-  match xs {
-    [] => false,
-    y :: rest => if x == y then true else evalMember(x, rest)
-  }
+-- Tokenize text into lowercase words (split on whitespace, filter empty)
+pure func evalTokenize(text: string) -> [string] =
+  splitWords(toLower(text))
 
--- Deduplicate a list (recursive)
-pure func evalDedup(words: [string]) -> [string] =
-  evalDedupAcc(words, [])
-
-pure func evalDedupAcc(words: [string], acc: [string]) -> [string] =
-  match words {
-    [] => acc,
-    w :: rest => if evalMember(w, acc) then evalDedupAcc(rest, acc)
-                 else evalDedupAcc(rest, concat(acc, [w]))
-  }
-
--- Set intersection
-pure func evalIntersection(a: [string], b: [string]) -> [string] =
-  filter(\x. evalMember(x, b), a)
-
--- Set union
-pure func evalUnion(a: [string], b: [string]) -> [string] =
-  evalDedup(concat(a, b))
-
--- ================================================================
--- Tokenization
--- ================================================================
-
--- Tokenize text into lowercase words (split on spaces, filter empty)
-pure func evalTokenize(text: string) -> [string] {
-  let words = split(toLower(text), " ");
-  filter(\w. length(w) > 0, words)
-}
-
--- Collect all words from a list of elements
+-- Collect all unique words from a list of elements
 pure func evalCollectWords(elements: [EvalElement]) -> [string] =
-  evalDedup(flatMap(\el. evalTokenize(el.elText), elements))
+  dedup(flatMap(\el. evalTokenize(el.elText), elements))
 
 -- ================================================================
 -- Jaccard Similarity
@@ -297,8 +265,8 @@ pure func evalCollectWords(elements: [EvalElement]) -> [string] =
 export pure func evalJaccard(golden: [string], actual: [string]) -> float
   ensures { result >= 0.0 && result <= 1.0 }
 {
-  let inter = evalIntersection(golden, actual);
-  let uni = evalUnion(golden, actual);
+  let inter = intersect(golden, actual);
+  let uni = union(golden, actual);
   let uniLen = listLength(uni);
   if uniLen == 0 then 1.0
   else evalDivide(listLength(inter), uniLen)
@@ -342,11 +310,11 @@ pure func evalCheckTrackChanges(golden: [EvalElement], actual: [EvalElement]) ->
     {name: "track_changes", applicable: false, passed: true, detail: "no track changes in golden"}
   else {
     let countMatch = listLength(goldenChanges) == listLength(actualChanges);
-    let goldenTypes = evalDedup(map(\e. e.elChangeType, goldenChanges));
-    let actualTypes = evalDedup(map(\e. e.elChangeType, actualChanges));
+    let goldenTypes = dedup(map(\e. e.elChangeType, goldenChanges));
+    let actualTypes = dedup(map(\e. e.elChangeType, actualChanges));
     let typesMatch = listLength(goldenTypes) == listLength(actualTypes);
-    let goldenAuthors = evalDedup(map(\e. e.elAuthor, goldenChanges));
-    let actualAuthors = evalDedup(map(\e. e.elAuthor, actualChanges));
+    let goldenAuthors = dedup(map(\e. e.elAuthor, goldenChanges));
+    let actualAuthors = dedup(map(\e. e.elAuthor, actualChanges));
     let authorsMatch = listLength(goldenAuthors) == listLength(actualAuthors);
     let passed = countMatch && typesMatch && authorsMatch;
     {name: "track_changes", applicable: true, passed: passed,
