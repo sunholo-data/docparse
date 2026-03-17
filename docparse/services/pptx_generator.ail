@@ -47,6 +47,9 @@ export func generatePptx(doc: ParsedDocument, outputPath: string) -> string ! {F
   let master = pptxSlideMaster();
   let masterRels = pptxSlideMasterRels();
 
+  let theme = pptxTheme();
+  let themeContentType = "<Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>";
+
   let baseEntries = [
     {name: "[Content_Types].xml", content: contentTypes},
     {name: "_rels/.rels", content: rootRels},
@@ -55,7 +58,8 @@ export func generatePptx(doc: ParsedDocument, outputPath: string) -> string ! {F
     {name: "ppt/slideLayouts/slideLayout1.xml", content: layout},
     {name: "ppt/slideLayouts/_rels/slideLayout1.xml.rels", content: layoutRels},
     {name: "ppt/slideMasters/slideMaster1.xml", content: master},
-    {name: "ppt/slideMasters/_rels/slideMaster1.xml.rels", content: masterRels}
+    {name: "ppt/slideMasters/_rels/slideMaster1.xml.rels", content: masterRels},
+    {name: "ppt/theme/theme1.xml", content: theme}
   ];
 
   let allEntries = pptxAppendEntries(baseEntries, slideEntries, slideRelEntries);
@@ -277,6 +281,7 @@ pure func pptxContentTypes(slideCount: int) -> string {
   "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" ++
   "<Override PartName=\"/ppt/slideMasters/slideMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml\"/>" ++
   "<Override PartName=\"/ppt/slideLayouts/slideLayout1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml\"/>" ++
+  "<Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>" ++
   pptxSlideContentTypes(slideCount, 1) ++
   "</Types>"
 }
@@ -359,4 +364,38 @@ pure func pptxSlideMasterRels() -> string =
   xmlDecl() ++
   "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" ++
   "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout\" Target=\"../slideLayouts/slideLayout1.xml\"/>" ++
+  "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme\" Target=\"../theme/theme1.xml\"/>" ++
   "</Relationships>"
+
+-- Minimal Office theme (required by Keynote and most PPTX readers)
+-- Defines a color scheme + font scheme. Without this, Keynote refuses to open the file.
+pure func pptxTheme() -> string =
+  xmlDecl() ++
+  "<a:theme xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" name=\"DocParse\">" ++
+  "<a:themeElements>" ++
+  "<a:clrScheme name=\"DocParse\">" ++
+  "<a:dk1><a:srgbClr val=\"000000\"/></a:dk1>" ++
+  "<a:lt1><a:srgbClr val=\"FFFFFF\"/></a:lt1>" ++
+  "<a:dk2><a:srgbClr val=\"1F497D\"/></a:dk2>" ++
+  "<a:lt2><a:srgbClr val=\"EEECE1\"/></a:lt2>" ++
+  "<a:accent1><a:srgbClr val=\"4F81BD\"/></a:accent1>" ++
+  "<a:accent2><a:srgbClr val=\"C0504D\"/></a:accent2>" ++
+  "<a:accent3><a:srgbClr val=\"9BBB59\"/></a:accent3>" ++
+  "<a:accent4><a:srgbClr val=\"8064A2\"/></a:accent4>" ++
+  "<a:accent5><a:srgbClr val=\"4BACC6\"/></a:accent5>" ++
+  "<a:accent6><a:srgbClr val=\"F79646\"/></a:accent6>" ++
+  "<a:hlink><a:srgbClr val=\"0000FF\"/></a:hlink>" ++
+  "<a:folHlink><a:srgbClr val=\"800080\"/></a:folHlink>" ++
+  "</a:clrScheme>" ++
+  "<a:fontScheme name=\"DocParse\">" ++
+  "<a:majorFont><a:latin typeface=\"Calibri\"/><a:ea typeface=\"\"/><a:cs typeface=\"\"/></a:majorFont>" ++
+  "<a:minorFont><a:latin typeface=\"Calibri\"/><a:ea typeface=\"\"/><a:cs typeface=\"\"/></a:minorFont>" ++
+  "</a:fontScheme>" ++
+  "<a:fmtScheme name=\"DocParse\">" ++
+  "<a:fillStyleLst><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:fillStyleLst>" ++
+  "<a:lnStyleLst><a:ln w=\"9525\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:ln><a:ln w=\"25400\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:ln><a:ln w=\"38100\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:ln></a:lnStyleLst>" ++
+  "<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>" ++
+  "<a:bgFillStyleLst><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:bgFillStyleLst>" ++
+  "</a:fmtScheme>" ++
+  "</a:themeElements>" ++
+  "</a:theme>"
