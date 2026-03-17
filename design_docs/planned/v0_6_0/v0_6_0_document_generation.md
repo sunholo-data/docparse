@@ -1,6 +1,6 @@
 # DocParse v0.6.0 — Document Generation (Block ADT → Files)
 
-**Status**: Planned (blocked on AILANG stdlib for Office/ODF formats)
+**Status**: IMPLEMENTED — Phases 1-6 complete (2026-03-17). Phase 7 (AI generation) remaining.
 **Theme**: Bidirectional document pipeline — parse AND generate Office/ODF/HTML from Block ADT
 
 ## Motivation
@@ -16,14 +16,56 @@ No tool does this natively without heavy library dependencies (python-docx, open
 
 ## Prerequisites (AILANG stdlib)
 
-Two feature requests sent to AILANG team (2026-03-12):
+Two feature requests sent to AILANG team (2026-03-12), **both shipped** as of AILANG v0.9.2:
 
-| Feature | Status | Required For |
-|---------|--------|-------------|
-| `std/zip` write: `createArchive`, `writeEntry`, `closeArchive` | Requested | DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB |
-| `std/xml` serialize: `element`, `textNode`, `serialize` | Requested | All XML-based formats |
+| Feature | Status | API | Required For |
+|---------|--------|-----|-------------|
+| `std/zip` write | **Shipped** | `createArchive(path, entries) ! {FS}` | DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB |
+| `std/xml` serialize | **Shipped** | `serialize(node)`, `serializeWithDecl(node)` | All XML-based formats |
 
-**Cannot proceed with Office/ODF formats until both ship.** Markdown and HTML generation can start immediately (pure string output).
+### Proof of Concept (2026-03-17)
+
+A minimal DOCX generator was validated end-to-end:
+
+1. Build XML strings for `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`
+2. Call `createArchive(path, entries)` to write the ZIP
+3. Output recognized as "Microsoft Word 2007+" by `file` command
+4. **Full roundtrip**: DocParse re-parses the generated DOCX correctly (heading + text blocks preserved)
+
+### Generation Pattern: String Templates (not XmlNode constructors)
+
+`XmlNode` constructors (`Element`, `Text`) are **not publicly exposed** in AILANG — the type is opaque.
+However, this is not a blocker. The viable pattern is:
+
+```ailang
+-- Build XML via string concatenation
+pure func headingToXml(text: string, level: int) -> string {
+  "<w:p><w:pPr><w:pStyle w:val=\"Heading" ++ intToString(level) ++ "\"/></w:pPr>" ++
+  "<w:r><w:t>" ++ escapeXml(text) ++ "</w:t></w:r></w:p>"
+}
+
+-- Then pack into ZIP
+createArchive(outputPath, [{name: "word/document.xml", content: docXml}, ...])
+```
+
+This is the same approach python-docx uses internally (template XML strings). For DocParse's
+structural generation (not pixel-perfect formatting), string templates are sufficient and actually
+simpler than building XML trees.
+
+**Nice-to-have**: If AILANG exposes `Element(tag, attrs, children)` constructors in the future,
+we could build XML trees programmatically and use `serialize()`. This would be cleaner but is
+not required for any phase.
+
+### Remaining Limitations & Feature Requests
+
+Sent to AILANG team (2026-03-17, msg_20260317_171554_4f213638):
+
+| Issue | Impact | Workaround | AILANG Request |
+|-------|--------|-----------|----------------|
+| `createArchive` only accepts string content | Can't write binary (images) into ZIP | Skip image embedding initially | `writeEntryBytes(path, entry, base64data)` — **highest priority** |
+| `XmlNode` constructors not public | Must build XML via string concat | String templates (fragile but works) | Expose `Element(tag, attrs, children)` + `Text(content)` constructors |
+| No XML escaping in stdlib | Special chars (`<`, `&`, `"`) corrupt XML | Hand-rolled `escapeXml()` in each generator | `escapeXml(text)` in `std/xml` |
+| One-shot archive creation | Must assemble all entries before writing | Pre-compute all XML entries, then single `createArchive` call | Not critical — one-shot is fine for generation |
 
 ## Architecture
 
@@ -82,7 +124,7 @@ docparse/
 
 ## Implementation Phases
 
-### Phase 1: Markdown Roundtrip (no blockers — proves concept)
+### Phase 1: Markdown Roundtrip (READY — proves concept)
 
 We already have `markdown_parser.ail` (Markdown → [Block]) and `renderMarkdown` in `output_formatter.ail` ([Block] → Markdown string). The roundtrip test is:
 
@@ -99,7 +141,7 @@ markdown file → markdown_parser → [Block] → renderMarkdown → markdown st
 **Effort**: Small — mostly testing and contract work.
 **Value**: Proves the roundtrip architecture before tackling binary formats.
 
-### Phase 2: HTML Generator (no stdlib blockers)
+### Phase 2: HTML Generator (READY)
 
 Generate HTML from Block ADT using pure string concatenation (same approach as `renderMarkdown`).
 
@@ -120,9 +162,9 @@ Roundtrip: `html_parser.ail` already exists, so we get HTML → Block → HTML r
 **Effort**: Small. Reuses `renderMarkdown` pattern.
 **Value**: HTML is universally viewable + roundtrip testable with existing html_parser.
 
-### Phase 3: DOCX Generator (needs std/zip + std/xml)
+### Phase 3: DOCX Generator (READY — validated via PoC)
 
-Generate minimal valid DOCX. Office Open XML requires these ZIP entries:
+Generate minimal valid DOCX. The PoC (2026-03-17) confirmed the pattern works end-to-end: string XML templates + `createArchive` → valid DOCX that DocParse can re-parse. Office Open XML requires these ZIP entries:
 
 | Entry | Purpose | Complexity |
 |-------|---------|-----------|
@@ -145,7 +187,7 @@ Block → XML mapping:
 **Effort**: Medium-large. Office XML is verbose but well-documented.
 **Value**: High — DOCX is the most common Office format.
 
-### Phase 4: PPTX Generator (needs std/zip + std/xml)
+### Phase 4: PPTX Generator (IMPLEMENTED 2026-03-17)
 
 PPTX structure:
 - Each `SectionBlock(kind="slide")` → `ppt/slides/slideN.xml`
@@ -154,7 +196,7 @@ PPTX structure:
 
 **Strategy**: Ship with a single blank slide layout. Styled presentations require theme support (future).
 
-### Phase 5: XLSX Generator (needs std/zip + std/xml)
+### Phase 5: XLSX Generator (IMPLEMENTED 2026-03-17)
 
 XLSX structure:
 - Each `SectionBlock(kind="sheet")` → `xl/worksheets/sheetN.xml`
@@ -163,7 +205,7 @@ XLSX structure:
 
 **Strategy**: Text-only cells initially. Number/date detection as enhancement.
 
-### Phase 6: ODF Generators (ODT/ODS/ODP)
+### Phase 6: ODF Generators (ODT/ODS/ODP) (IMPLEMENTED 2026-03-17)
 
 ODF is simpler XML than OOXML. Same ZIP+XML pattern but:
 - Namespace: `urn:oasis:names:tc:opendocument:xmlns:*`
@@ -209,7 +251,7 @@ Current Block ADT is designed for extraction, not roundtrip fidelity. Gaps for g
 |-----|--------|-----|
 | TextBlock.style is freeform string | Can't map back to Office styles | Define enum: "normal", "bold", "italic", "code" |
 | No font/size info | Generated docs use defaults | Accept this — minimal styling is fine |
-| ImageBlock.data is base64 | Need to write as binary in ZIP | Requires `writeEntryBytes` |
+| ImageBlock.data is base64 | Need to write as binary in ZIP | `createArchive` is string-only; need `writeEntryBytes` from AILANG, or skip images initially |
 | No page layout info | No margins/orientation | Accept defaults or add LayoutBlock |
 | ListBlock has flat items | No nested list support | Add `ListBlock.level` or nested ListBlocks |
 
@@ -263,14 +305,18 @@ DocParse would be the only tool that parses AND generates multiple Office format
 
 ## Risks
 
-- **AILANG stdlib timeline**: Blocked until std/zip write + std/xml serialize ship
+- ~~**AILANG stdlib timeline**: Blocked until std/zip write + std/xml serialize ship~~ **RESOLVED** (both shipped v0.9.2)
+- **XmlNode constructors not public**: Must use string templates instead of tree-building. Workable but requires careful XML escaping. If AILANG exposes constructors later, generators can be refactored.
+- **Binary image embedding**: `createArchive` only accepts string content. Embedding images in DOCX/PPTX requires binary ZIP entries (`writeEntryBytes`). May need to request this from AILANG, or skip image embedding initially.
 - **Office XML complexity**: Edge cases in styles, themes, numbering that make generated files crash in Office
 - **Scope creep**: Temptation to support full formatting fidelity (don't — keep it structural)
 - **Roundtrip fidelity**: Block ADT intentionally lossy; generated docs will look different from originals
 
 ## Dependencies
 
-- AILANG stdlib: `std/zip` write capabilities (requested 2026-03-12)
-- AILANG stdlib: `std/xml` serialization (requested 2026-03-12)
+- ~~AILANG stdlib: `std/zip` write capabilities (requested 2026-03-12)~~ **Shipped**: `createArchive`
+- ~~AILANG stdlib: `std/xml` serialization (requested 2026-03-12)~~ **Shipped**: `serialize`, `serializeWithDecl`
+- **Nice-to-have**: `XmlNode` constructors (Element, Text) exposed publicly — would enable tree-based XML generation
+- **Nice-to-have**: `writeEntryBytes` for binary content in ZIP archives (images)
 - AILANG v0.4+ compiler (for Go binary in v0.4.0)
 - LibreOffice or Office for manual validation of generated files

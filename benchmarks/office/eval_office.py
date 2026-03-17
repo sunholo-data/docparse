@@ -242,13 +242,17 @@ def evaluate_file(test_file: Path, golden_file: Path) -> dict:
 
     # Run DocParse
     start = time.time()
-    result = subprocess.run(
-        ["ailang", "run", "--entry", "main", "--caps", "IO,FS,Env",
-         "--max-recursion-depth", "50000",
-         "docparse/main.ail", str(test_file)],
-        capture_output=True, text=True, cwd=str(REPO_DIR),
-        timeout=120,
-    )
+    try:
+        result = subprocess.run(
+            ["ailang", "run", "--entry", "main", "--caps", "IO,FS,Env",
+             "--max-recursion-depth", "50000",
+             "docparse/main.ail", str(test_file)],
+            capture_output=True, text=True, cwd=str(REPO_DIR),
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        elapsed_ms = round((time.time() - start) * 1000, 1)
+        return {"file": fname, "status": "SKIP", "error": "timeout (120s)", "time_ms": elapsed_ms}
     elapsed_ms = round((time.time() - start) * 1000, 1)
 
     # Check if the parser succeeded

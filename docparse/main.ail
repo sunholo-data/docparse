@@ -23,6 +23,14 @@ import docparse/services/odp_parser (parseOdp, parseOdpMetadata)
 import docparse/services/ods_parser (parseOds, parseOdsMetadata)
 import docparse/services/output_formatter (formatResult, printSummary, printBlocks, renderMarkdown)
 import docparse/services/eval (evalMain, evalNormalizeJson, evalJaccard, evalComputeScore)
+import docparse/services/html_generator (generateHtml)
+import docparse/services/docx_generator (generateDocx)
+import docparse/services/pptx_generator (generatePptx)
+import docparse/services/xlsx_generator (generateXlsx)
+import docparse/services/odt_generator (generateOdt)
+import docparse/services/odp_generator (generateOdp)
+import docparse/services/ods_generator (generateOds)
+import docparse/services/xml_helpers (xmlEscape)
 import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
 import std/zip (listEntries, readEntry, readEntryBytes)
 import std/ai (call)
@@ -69,6 +77,7 @@ export func main() -> () ! {IO @limit=50000, FS @limit=5000, AI @limit=30, Env} 
   };
   let useAI = hasFlag(args, "describe");
   let doSummarize = hasFlag(args, "summarize");
+  let convertTarget = getConvertTarget(args);
 
   -- Check file exists
   if not fileExists(filepath) then {
@@ -95,16 +104,16 @@ export func main() -> () ! {IO @limit=50000, FS @limit=5000, AI @limit=30, Env} 
 
     -- Step 2: Parse based on format
     match format {
-      "zip-office" => parseOfficeDocument(filepath, ext, useAI || doSummarize, doSummarize),
-      "pdf" => parsePdfDocument(filepath, doSummarize),
-      "image" => parseImageDocument(filepath, ext, doSummarize),
-      "audio" => parseAudioDocument(filepath, ext, doSummarize),
-      "video" => parseVideoDocument(filepath, ext, doSummarize),
-      "csv" => parseCsvDocument(filepath, ext),
-      "markdown" => parseMarkdownDocument(filepath),
-      "html" => parseHtmlDocument(filepath, useAI || doSummarize, doSummarize),
-      "epub" => parseEpubDocument(filepath, useAI || doSummarize, doSummarize),
-      "zip-odf" => parseOdfDocument(filepath, ext, useAI || doSummarize, doSummarize),
+      "zip-office" => parseOfficeDocument(filepath, ext, useAI || doSummarize, doSummarize, convertTarget),
+      "pdf" => parsePdfDocument(filepath, doSummarize, convertTarget),
+      "image" => parseImageDocument(filepath, ext, doSummarize, convertTarget),
+      "audio" => parseAudioDocument(filepath, ext, doSummarize, convertTarget),
+      "video" => parseVideoDocument(filepath, ext, doSummarize, convertTarget),
+      "csv" => parseCsvDocument(filepath, ext, convertTarget),
+      "markdown" => parseMarkdownDocument(filepath, convertTarget),
+      "html" => parseHtmlDocument(filepath, useAI || doSummarize, doSummarize, convertTarget),
+      "epub" => parseEpubDocument(filepath, useAI || doSummarize, doSummarize, convertTarget),
+      "zip-odf" => parseOdfDocument(filepath, ext, useAI || doSummarize, doSummarize, convertTarget),
       "text" => parseTextDocument(filepath),
       _ => println("Format '" ++ format ++ "' not yet supported in this demo.")
     }
@@ -115,19 +124,30 @@ export func main() -> () ! {IO @limit=50000, FS @limit=5000, AI @limit=30, Env} 
 pure func hasFlag(args: [string], flag: string) -> bool =
   any(\a. a == flag, args)
 
+-- Extract --convert target path from args: ["file.docx", "--convert", "out.html"] -> "out.html"
+pure func getConvertTarget(args: [string]) -> string =
+  match args {
+    [] => "",
+    "--convert" :: rest => match rest {
+      [] => "",
+      target :: _ => target
+    },
+    _ :: rest => getConvertTarget(rest)
+  }
+
 -- Parse an Office document (docx/pptx/xlsx)
-func parseOfficeDocument(filepath: string, ext: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseOfficeDocument(filepath: string, ext: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   let office = officeType(ext);
   match office {
-    "word" => parseWordDocument(filepath, useAI, doSummarize),
-    "powerpoint" => parsePowerPointDocument(filepath, useAI, doSummarize),
-    "excel" => parseExcelDocument(filepath, doSummarize),
+    "word" => parseWordDocument(filepath, useAI, doSummarize, convertTarget),
+    "powerpoint" => parsePowerPointDocument(filepath, useAI, doSummarize, convertTarget),
+    "excel" => parseExcelDocument(filepath, doSummarize, convertTarget),
     _ => println("Office type '" ++ office ++ "' not yet supported.")
   }
 }
 
 -- Parse a Word (DOCX) document
-func parseWordDocument(filepath: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseWordDocument(filepath: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing DOCX ---");
   println("");
 
@@ -214,11 +234,11 @@ func parseWordDocument(filepath: string, useAI: bool, doSummarize: bool) -> () !
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse a PowerPoint (PPTX) document
-func parsePowerPointDocument(filepath: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parsePowerPointDocument(filepath: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing PPTX ---");
   println("");
 
@@ -283,11 +303,11 @@ func parsePowerPointDocument(filepath: string, useAI: bool, doSummarize: bool) -
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse an Excel (XLSX) document
-func parseExcelDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseExcelDocument(filepath: string, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing XLSX ---");
   println("");
 
@@ -323,11 +343,11 @@ func parseExcelDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse a PDF document (AI-powered extraction)
-func parsePdfDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parsePdfDocument(filepath: string, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing PDF (AI) ---");
   println("");
 
@@ -365,13 +385,13 @@ func parsePdfDocument(filepath: string, doSummarize: bool) -> () ! {IO, FS, AI} 
   println("");
 
   -- Step 5: Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse an image file (AI-powered document extraction)
 -- Extracts structured content (headings, text, tables) from document page images.
 -- Falls back to image description if no document content is found.
-func parseImageDocument(filepath: string, ext: string, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseImageDocument(filepath: string, ext: string, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing Image (AI Document Extraction) ---");
   println("");
 
@@ -410,7 +430,7 @@ func parseImageDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   println("");
 
   -- Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Determine MIME type from image extension
@@ -427,7 +447,7 @@ pure func imageMimeType(ext: string) -> string =
   }
 
 -- Parse an audio file (AI-powered transcription + understanding)
-func parseAudioDocument(filepath: string, ext: string, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseAudioDocument(filepath: string, ext: string, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing Audio (AI) ---");
   println("");
 
@@ -459,7 +479,7 @@ func parseAudioDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   println("");
 
   -- Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Determine MIME type from audio extension
@@ -475,7 +495,7 @@ pure func audioMimeType(ext: string) -> string =
   }
 
 -- Parse a video file (AI-powered visual + audio understanding)
-func parseVideoDocument(filepath: string, ext: string, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseVideoDocument(filepath: string, ext: string, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing Video (AI) ---");
   println("");
 
@@ -507,7 +527,7 @@ func parseVideoDocument(filepath: string, ext: string, doSummarize: bool) -> () 
   println("");
 
   -- Write outputs
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Determine MIME type from video extension
@@ -526,7 +546,7 @@ pure func videoMimeType(ext: string) -> string =
   }
 
 -- Parse a CSV/TSV document (pure AILANG, no dependencies)
-func parseCsvDocument(filepath: string, ext: string) -> () ! {IO, FS, AI} {
+func parseCsvDocument(filepath: string, ext: string, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing CSV (pure AILANG) ---");
   println("");
 
@@ -557,11 +577,11 @@ func parseCsvDocument(filepath: string, ext: string) -> () ! {IO, FS, AI} {
   printBlocks(blocks);
   println("");
 
-  writeOutputs(doc, result, false, filepath)
+  writeOutputs(doc, result, false, filepath, convertTarget)
 }
 
 -- Parse a Markdown document (pure AILANG, no dependencies)
-func parseMarkdownDocument(filepath: string) -> () ! {IO, FS, AI} {
+func parseMarkdownDocument(filepath: string, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing Markdown (pure AILANG) ---");
   println("");
 
@@ -591,11 +611,11 @@ func parseMarkdownDocument(filepath: string) -> () ! {IO, FS, AI} {
   printBlocks(blocks);
   println("");
 
-  writeOutputs(doc, result, false, filepath)
+  writeOutputs(doc, result, false, filepath, convertTarget)
 }
 
 -- Parse an EPUB document (ZIP of XHTML, pure AILANG)
-func parseEpubDocument(filepath: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseEpubDocument(filepath: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing EPUB (pure AILANG, ZIP + XHTML) ---");
   println("");
 
@@ -651,11 +671,11 @@ func parseEpubDocument(filepath: string, useAI: bool, doSummarize: bool) -> () !
   printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse an ODF document (ODT/ODP/ODS — pure AILANG, ZIP + ODF XML)
-func parseOdfDocument(filepath: string, ext: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseOdfDocument(filepath: string, ext: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   let odfType = if ext == "odt" then "text"
     else if ext == "odp" then "presentation"
     else if ext == "ods" then "spreadsheet"
@@ -728,12 +748,12 @@ func parseOdfDocument(filepath: string, ext: string, useAI: bool, doSummarize: b
   printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse an HTML/XHTML document (pure AILANG, XML-based)
 -- Strategy: try deterministic XML parse first, AI fallback for dirty HTML
-func parseHtmlDocument(filepath: string, useAI: bool, doSummarize: bool) -> () ! {IO, FS, AI} {
+func parseHtmlDocument(filepath: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   println("--- Parsing HTML (pure AILANG, XML-based) ---");
   println("");
 
@@ -784,7 +804,7 @@ func parseHtmlDocument(filepath: string, useAI: bool, doSummarize: bool) -> () !
   printBlocks(allBlocks);
   println("");
 
-  writeOutputs(doc, result, doSummarize, filepath)
+  writeOutputs(doc, result, doSummarize, filepath, convertTarget)
 }
 
 -- Parse a plain text document
@@ -796,10 +816,11 @@ func parseTextDocument(filepath: string) -> () ! {IO, FS} {
   println("=== DocParse Complete ===")
 }
 
--- Write all output files: JSON, markdown, and optional AI summary
+-- Write all output files: JSON, markdown, optional conversion, and optional AI summary
 -- Output filenames are derived from input: sample.docx → sample.docx.json, sample.docx.md
 -- Output dir: DOCPARSE_OUTPUT_DIR env var (default: docparse/data)
-func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bool, filepath: string) -> () ! {IO, FS, AI, Env} {
+-- convertTarget: if non-empty, generate output in target format (e.g., "out.html", "out.docx")
+func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bool, filepath: string, convertTarget: string) -> () ! {IO, FS, AI, Env} {
   let outDir = getEnvOr("DOCPARSE_OUTPUT_DIR", "docparse/data");
   let basename = mainBasename(filepath);
 
@@ -814,6 +835,48 @@ func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bo
   let mdPath = outDir ++ "/" ++ basename ++ ".md";
   writeFile(mdPath, markdown);
   println("Markdown output written to " ++ mdPath);
+
+  -- Optional: format conversion
+  if length(convertTarget) > 0 then {
+    println("");
+    let convertExt = getExtension(convertTarget);
+    if convertExt == "html" || convertExt == "htm" then {
+      let html = generateHtml(doc);
+      writeFile(convertTarget, html);
+      println("Converted to HTML: " ++ convertTarget)
+    }
+    else if convertExt == "docx" then {
+      let msg = generateDocx(doc, convertTarget);
+      println(msg)
+    }
+    else if convertExt == "pptx" then {
+      let msg = generatePptx(doc, convertTarget);
+      println(msg)
+    }
+    else if convertExt == "xlsx" then {
+      let msg = generateXlsx(doc, convertTarget);
+      println(msg)
+    }
+    else if convertExt == "odt" then {
+      let msg = generateOdt(doc, convertTarget);
+      println(msg)
+    }
+    else if convertExt == "odp" then {
+      let msg = generateOdp(doc, convertTarget);
+      println(msg)
+    }
+    else if convertExt == "ods" then {
+      let msg = generateOds(doc, convertTarget);
+      println(msg)
+    }
+    else if convertExt == "md" then {
+      let md = renderMarkdown(doc);
+      writeFile(convertTarget, md);
+      println("Converted to Markdown: " ++ convertTarget)
+    }
+    else println("Unsupported conversion format: " ++ convertExt ++ " (supported: html, docx, pptx, xlsx, odt, odp, ods, md)")
+  }
+  else ();
 
   -- Optional: AI summary
   if doSummarize then {

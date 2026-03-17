@@ -1,0 +1,237 @@
+module docparse/services/docx_generator
+
+import std/string (length, intToStr)
+import std/list (map, foldl, length as listLength)
+import std/zip (createArchive)
+import std/result (Ok, Err)
+import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ListBlock, ImageBlock, AudioBlock, VideoBlock, SectionBlock, ChangeBlock, TableCell, ParsedDocument, countBlocks)
+import docparse/services/xml_helpers (xmlEscape, xmlDecl, docxContentTypes, docxRootRels, docxRun, docxParagraph, docxStyledParagraph)
+
+-- DOCX Generator — converts Block ADT to a valid .docx file.
+--
+-- Pattern: Build XML strings for each ZIP entry, then createArchive in one shot.
+-- No XmlNode constructors needed — string templates work for structural generation.
+--
+-- Generated DOCX structure:
+--   [Content_Types].xml     - MIME registry (static)
+--   _rels/.rels             - Root relationships (static)
+--   word/document.xml       - Main content (dynamic from blocks)
+--   word/styles.xml         - Minimal style definitions (static)
+--
+-- Limitations:
+--   - No embedded images (needs writeEntryBytes for binary)
+--   - No headers/footers (could add as word/header1.xml if SectionBlocks present)
+--   - Minimal styling (structural, not pixel-perfect)
+--
+-- Contract: non-empty blocks produce a valid DOCX
+
+-- Generate a DOCX file from a ParsedDocument, writing to outputPath
+export func generateDocx(doc: ParsedDocument, outputPath: string) -> string ! {FS}
+  ensures { length(result) > 0 }
+{
+  let documentXml = docxBuildDocument(doc.blocks);
+  let stylesXml = docxMinimalStyles();
+  let contentTypes = docxContentTypesWithStyles();
+  let rootRels = docxRootRels();
+
+  let entries = [
+    {name: "[Content_Types].xml", content: contentTypes},
+    {name: "_rels/.rels", content: rootRels},
+    {name: "word/document.xml", content: documentXml},
+    {name: "word/styles.xml", content: stylesXml}
+  ];
+
+  let result = createArchive(outputPath, entries);
+  match result {
+    Ok(_) => "Generated DOCX: " ++ outputPath,
+    Err(e) => "Error generating DOCX: " ++ e
+  }
+}
+
+-- Build word/document.xml from blocks
+pure func docxBuildDocument(blocks: [Block]) -> string
+  ensures { length(result) > 0 }
+{
+  let body = foldl(\acc b. acc ++ docxBlockToXml(b), "", blocks);
+  xmlDecl() ++
+  "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"" ++
+  " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" ++
+  "<w:body>" ++ body ++ "</w:body></w:document>"
+}
+
+-- Convert a single Block to DOCX XML
+pure func docxBlockToXml(block: Block) -> string =
+  match block {
+    HeadingBlock(h) =>
+      docxStyledParagraph("Heading" ++ intToStr(h.level), h.text),
+
+    TextBlock(t) =>
+      if length(t.text) > 0
+      then docxParagraph(docxRun(t.text))
+      else "",
+
+    TableBlock(t) =>
+      docxTableToXml(t.headers, t.rows),
+
+    ListBlock(l) =>
+      docxListToXml(l.items, l.ordered),
+
+    ImageBlock(i) =>
+      -- Can't embed binary images yet (needs writeEntryBytes).
+      -- Output a placeholder paragraph with the description.
+      if length(i.description) > 0
+      then docxParagraph(docxRun("[Image: " ++ i.description ++ "]"))
+      else docxParagraph(docxRun("[Image]")),
+
+    AudioBlock(a) =>
+      if length(a.transcription) > 0
+      then docxParagraph(docxRun("[Audio: " ++ a.transcription ++ "]"))
+      else docxParagraph(docxRun("[Audio]")),
+
+    VideoBlock(v) =>
+      if length(v.description) > 0
+      then docxParagraph(docxRun("[Video: " ++ v.description ++ "]"))
+      else docxParagraph(docxRun("[Video]")),
+
+    SectionBlock(s) =>
+      docxSectionToXml(s.kind, s.blocks),
+
+    ChangeBlock(c) =>
+      docxChangeToXml(c.changeType, c.author, c.date, c.text)
+  }
+
+-- Build a DOCX table: <w:tbl> with <w:tr>/<w:tc>
+pure func docxTableToXml(headers: [TableCell], rows: [[TableCell]]) -> string {
+  let tblPr = "<w:tblPr>" ++
+    "<w:tblBorders>" ++
+    "<w:top w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" ++
+    "<w:left w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" ++
+    "<w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" ++
+    "<w:right w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" ++
+    "<w:insideH w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" ++
+    "<w:insideV w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" ++
+    "</w:tblBorders>" ++
+    "<w:tblW w:w=\"0\" w:type=\"auto\"/>" ++
+    "</w:tblPr>";
+  let headerRow = if listLength(headers) > 0
+    then "<w:tr>" ++ docxHeaderCellsToXml(headers) ++ "</w:tr>"
+    else "";
+  let dataRows = foldl(\acc row. acc ++ "<w:tr>" ++ docxDataCellsToXml(row) ++ "</w:tr>", "", rows);
+  "<w:tbl>" ++ tblPr ++ headerRow ++ dataRows ++ "</w:tbl>"
+}
+
+-- Header cells as bold <w:tc>
+pure func docxHeaderCellsToXml(cells: [TableCell]) -> string =
+  foldl(\acc c. acc ++ docxHeaderCellToXml(c), "", cells)
+
+pure func docxHeaderCellToXml(cell: TableCell) -> string {
+  if cell.merged then "<w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc>"
+  else {
+    let spanPr = if cell.colSpan > 1
+      then "<w:gridSpan w:val=\"" ++ intToStr(cell.colSpan) ++ "\"/>"
+      else "";
+    "<w:tc><w:tcPr>" ++ spanPr ++ "</w:tcPr>" ++
+    "<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr>" ++
+    "<w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">" ++ xmlEscape(cell.text) ++ "</w:t></w:r>" ++
+    "</w:p></w:tc>"
+  }
+}
+
+-- Data cells as normal <w:tc>
+pure func docxDataCellsToXml(cells: [TableCell]) -> string =
+  foldl(\acc c. acc ++ docxDataCellToXml(c), "", cells)
+
+pure func docxDataCellToXml(cell: TableCell) -> string {
+  if cell.merged then "<w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc>"
+  else {
+    let spanPr = if cell.colSpan > 1
+      then "<w:gridSpan w:val=\"" ++ intToStr(cell.colSpan) ++ "\"/>"
+      else "";
+    "<w:tc><w:tcPr>" ++ spanPr ++ "</w:tcPr>" ++
+    docxParagraph(docxRun(cell.text)) ++
+    "</w:tc>"
+  }
+}
+
+-- Lists as numbered/bulleted paragraphs
+-- DOCX lists use <w:numPr> with numId reference. We use a simple approach:
+-- bullet list items get a bullet character prefix, numbered get "N. " prefix.
+-- Full list numbering would require word/numbering.xml (deferred).
+pure func docxListToXml(items: [string], ordered: bool) -> string =
+  docxListItemsToXml(items, ordered, 1)
+
+pure func docxListItemsToXml(items: [string], ordered: bool, idx: int) -> string =
+  match items {
+    [] => "",
+    item :: rest =>
+      let prefix = if ordered
+        then intToStr(idx) ++ ". "
+        else "\u2022 " in
+      docxParagraph(docxRun(prefix ++ item)) ++
+      docxListItemsToXml(rest, ordered, idx + 1)
+  }
+
+-- Section blocks: render child blocks with a section label
+pure func docxSectionToXml(kind: string, blocks: [Block]) -> string {
+  let label = if kind == "slide" then "--- Slide ---"
+    else if kind == "sheet" then "--- Sheet ---"
+    else if kind == "header" then "Header:"
+    else if kind == "footer" then "Footer:"
+    else if kind == "footnote" then "Footnote:"
+    else if kind == "endnote" then "Endnote:"
+    else if kind == "textbox" then "Text Box:"
+    else "";
+  let labelXml = if length(label) > 0
+    then docxStyledParagraph("Heading3", label)
+    else "";
+  labelXml ++ foldl(\acc b. acc ++ docxBlockToXml(b), "", blocks)
+}
+
+-- Track changes as styled paragraphs
+-- Full revision markup (<w:ins>/<w:del>) would need revision IDs (deferred).
+-- For now, render as styled text with attribution.
+pure func docxChangeToXml(changeType: string, author: string, date: string, text: string) -> string {
+  let attribution = " (" ++ changeType ++ " by " ++ author ++ ", " ++ date ++ ")";
+  if changeType == "delete" || changeType == "move-from"
+  then docxParagraph(
+    "<w:r><w:rPr><w:strike/></w:rPr><w:t xml:space=\"preserve\">" ++ xmlEscape(text) ++ "</w:t></w:r>" ++
+    docxRun(attribution)
+  )
+  else docxParagraph(
+    "<w:r><w:rPr><w:b/><w:u w:val=\"single\"/></w:rPr><w:t xml:space=\"preserve\">" ++ xmlEscape(text) ++ "</w:t></w:r>" ++
+    docxRun(attribution)
+  )
+}
+
+-- [Content_Types].xml extended with styles.xml
+pure func docxContentTypesWithStyles() -> string {
+  xmlDecl() ++
+  "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" ++
+  "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" ++
+  "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" ++
+  "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" ++
+  "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>" ++
+  "</Types>"
+}
+
+-- Minimal styles.xml with heading styles
+pure func docxMinimalStyles() -> string {
+  xmlDecl() ++
+  "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">" ++
+  "<w:style w:type=\"paragraph\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>" ++
+  docxHeadingStyle(1, "28") ++
+  docxHeadingStyle(2, "24") ++
+  docxHeadingStyle(3, "20") ++
+  docxHeadingStyle(4, "18") ++
+  docxHeadingStyle(5, "16") ++
+  docxHeadingStyle(6, "14") ++
+  "</w:styles>"
+}
+
+-- Build a heading style definition
+pure func docxHeadingStyle(level: int, fontSize: string) -> string =
+  "<w:style w:type=\"paragraph\" w:styleId=\"Heading" ++ intToStr(level) ++ "\">" ++
+  "<w:name w:val=\"heading " ++ intToStr(level) ++ "\"/>" ++
+  "<w:pPr><w:spacing w:before=\"240\" w:after=\"120\"/></w:pPr>" ++
+  "<w:rPr><w:b/><w:sz w:val=\"" ++ fontSize ++ "\"/></w:rPr>" ++
+  "</w:style>"
