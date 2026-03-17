@@ -2,7 +2,7 @@ n# CLAUDE.md — DocParse
 
 ## Project Purpose
 
-DocParse is a standalone AILANG module for universal document parsing. It extracts structured content from Office formats (DOCX, PPTX, XLSX) deterministically and from PDFs/images via pluggable AI.
+DocParse is a standalone AILANG module for universal document parsing and generation. It extracts structured content from Office formats (DOCX, PPTX, XLSX, ODT, ODP, ODS, HTML, Markdown, CSV, EPUB) deterministically and from PDFs/images via pluggable AI. It also generates documents in 8 formats from parsed content or AI prompts.
 
 This is a production AILANG module, not a demo. Every change must exercise AILANG code paths.
 
@@ -12,7 +12,7 @@ This is a production AILANG module, not a demo. Every change must exercise AILAN
 docparse/
 ├── docparse/              # AILANG modules (keeps docparse/ prefix for imports)
 │   ├── types/document.ail # Block ADT (9 variants)
-│   ├── services/          # 9 service modules
+│   ├── services/          # 22 service modules (parsers + generators)
 │   └── main.ail           # CLI entry point
 ├── bin/docparse           # Bash CLI wrapper
 ├── data/test_files/       # 17 real-world test files
@@ -25,10 +25,21 @@ docparse/
 # Parse a document
 ./bin/docparse data/test_files/sample.docx
 
+# Convert between formats
+./bin/docparse input.docx --convert output.html
+./bin/docparse data.csv --convert report.docx
+./bin/docparse notes.md --convert slides.pptx
+
+# AI document generation (requires --ai flag and AI capability)
+ailang run --entry main --caps IO,FS,Env,AI --ai gemini-2.5-flash \
+  docparse/main.ail --generate report.docx --prompt "Q1 sales report with revenue table"
+
 # Dev commands
-./bin/docparse --check       # Type-check all 10 modules
+./bin/docparse --check       # Type-check all modules
 ./bin/docparse --test        # Run inline tests
 ./bin/docparse --prove       # Z3 contract verification
+bash benchmarks/quick_check.sh    # Quick smoke test (~15s)
+bash .claude/skills/verify-docs/scripts/verify_only.sh  # Verify generated files
 
 # Direct ailang invocation (from repo root)
 ailang run --entry main --caps IO,FS,Env docparse/main.ail data/test_files/sample.docx
