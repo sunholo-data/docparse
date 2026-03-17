@@ -30,6 +30,7 @@ import docparse/services/xlsx_generator (generateXlsx)
 import docparse/services/odt_generator (generateOdt)
 import docparse/services/odp_generator (generateOdp)
 import docparse/services/ods_generator (generateOds)
+import docparse/services/ai_generator (aiGenerateBlocks)
 import docparse/services/xml_helpers (xmlEscape)
 import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
 import std/zip (listEntries, readEntry, readEntryBytes)
@@ -78,14 +79,27 @@ export func main() -> () ! {IO @limit=50000, FS @limit=5000, AI @limit=30, Env} 
   let useAI = hasFlag(args, "describe");
   let doSummarize = hasFlag(args, "summarize");
   let convertTarget = getConvertTarget(args);
+  let generateTarget = getGenerateTarget(args);
+  let promptText = getPromptText(args);
 
-  -- Check file exists
-  if not fileExists(filepath) then {
+  -- AI Document Generation mode: --generate output.docx --prompt "..."
+  if length(generateTarget) > 0 && length(promptText) > 0 then {
+    generateDocument(generateTarget, promptText)
+  }
+  else if length(generateTarget) > 0 then {
+    println("Error: --generate requires --prompt \"description\"");
+    println("");
+    println("Usage: ./bin/docparse --generate report.docx --prompt \"Q1 sales report with tables\"");
+    println("       ./bin/docparse --generate slides.pptx --prompt \"5-slide pitch deck\"")
+  }
+  -- Check file exists (normal parse mode)
+  else if not fileExists(filepath) then {
     println("Error: File not found: " ++ filepath);
     println("");
     println("Usage: ailang run --entry main --caps IO,FS,Env docparse/main.ail <file>");
     println("       ailang run --entry main --caps IO,FS,Env,AI --ai gemini-3-flash-preview docparse/main.ail <file> describe");
-    println("       ailang run --entry main --caps IO,FS,Env,AI --ai gemini-3-flash-preview docparse/main.ail <file> summarize")
+    println("       ailang run --entry main --caps IO,FS,Env,AI --ai gemini-3-flash-preview docparse/main.ail <file> summarize");
+    println("       ailang run --entry main --caps IO,FS,Env,AI --ai gemini-2.5-flash docparse/main.ail --generate output.docx --prompt \"...\"")
   }
   else {
     -- Step 1: Detect format
@@ -134,6 +148,99 @@ pure func getConvertTarget(args: [string]) -> string =
     },
     _ :: rest => getConvertTarget(rest)
   }
+
+-- Extract --generate target path from args: ["--generate", "out.docx", "--prompt", "..."] -> "out.docx"
+pure func getGenerateTarget(args: [string]) -> string =
+  match args {
+    [] => "",
+    "--generate" :: rest => match rest {
+      [] => "",
+      target :: _ => target
+    },
+    _ :: rest => getGenerateTarget(rest)
+  }
+
+-- Extract --prompt text from args: ["--prompt", "Q1 report"] -> "Q1 report"
+pure func getPromptText(args: [string]) -> string =
+  match args {
+    [] => "",
+    "--prompt" :: rest => match rest {
+      [] => "",
+      text :: _ => text
+    },
+    _ :: rest => getPromptText(rest)
+  }
+
+-- AI Document Generation: prompt → AI → [Block] → format generator → file
+func generateDocument(outputPath: string, prompt: string) -> () ! {IO, FS, AI, Env} {
+  let ext = getExtension(outputPath);
+  println("--- AI Document Generation ---");
+  println("Output:   " ++ outputPath);
+  println("Format:   " ++ ext);
+  println("Prompt:   " ++ prompt);
+  println("");
+
+  -- Step 1: Generate blocks from prompt via AI
+  println("Generating content via AI...");
+  let blocks = aiGenerateBlocks(prompt, ext);
+  println("Generated " ++ show(countBlocks(blocks)) ++ " content blocks.");
+  println("");
+
+  -- Step 2: Build a ParsedDocument wrapper
+  let doc = {
+    format: ext,
+    filename: outputPath,
+    metadata: {title: prompt, author: "DocParse AI", created: "", modified: "", pageCount: 0},
+    blocks: blocks
+  };
+
+  -- Step 3: Show what was generated
+  printSummary(doc);
+  println("");
+  println("--- Generated Content ---");
+  printBlocks(blocks);
+  println("");
+
+  -- Step 4: Generate the output file
+  if ext == "html" || ext == "htm" then {
+    let html = generateHtml(doc);
+    writeFile(outputPath, html);
+    println("Generated HTML: " ++ outputPath)
+  }
+  else if ext == "docx" then {
+    let msg = generateDocx(doc, outputPath);
+    println(msg)
+  }
+  else if ext == "pptx" then {
+    let msg = generatePptx(doc, outputPath);
+    println(msg)
+  }
+  else if ext == "xlsx" then {
+    let msg = generateXlsx(doc, outputPath);
+    println(msg)
+  }
+  else if ext == "odt" then {
+    let msg = generateOdt(doc, outputPath);
+    println(msg)
+  }
+  else if ext == "odp" then {
+    let msg = generateOdp(doc, outputPath);
+    println(msg)
+  }
+  else if ext == "ods" then {
+    let msg = generateOds(doc, outputPath);
+    println(msg)
+  }
+  else if ext == "md" then {
+    let md = renderMarkdown(doc);
+    writeFile(outputPath, md);
+    println("Generated Markdown: " ++ outputPath)
+  }
+  else println("Unsupported format: " ++ ext ++ " (supported: html, docx, pptx, xlsx, odt, odp, ods, md)");
+
+  println("");
+  println("=== DocParse Generation Complete ===")
+}
 
 -- Parse an Office document (docx/pptx/xlsx)
 func parseOfficeDocument(filepath: string, ext: string, useAI: bool, doSummarize: bool, convertTarget: string) -> () ! {IO, FS, AI, Env} {

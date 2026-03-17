@@ -1,6 +1,6 @@
 # DocParse v0.6.0 — Document Generation (Block ADT → Files)
 
-**Status**: IMPLEMENTED — Phases 1-6 complete (2026-03-17). Phase 7 (AI generation) remaining.
+**Status**: FULLY IMPLEMENTED — All 7 phases complete (2026-03-17).
 **Theme**: Bidirectional document pipeline — parse AND generate Office/ODF/HTML from Block ADT
 
 ## Motivation
@@ -215,7 +215,7 @@ ODF is simpler XML than OOXML. Same ZIP+XML pattern but:
 
 **Strategic value**: Nobody does native ODF generation without LibreOffice. This would be first-of-kind.
 
-### Phase 7: AI-Assisted Document Generation
+### Phase 7: AI-Assisted Document Generation (IMPLEMENTED 2026-03-17)
 
 Use AILANG's AI effect to generate Block ADT from natural language prompts, then pipe through the appropriate generator.
 
@@ -282,7 +282,7 @@ ensures { parse(generate(blocks)).blocks has same structure as blocks }
 
 | Tool | Parse | Generate | Native (no deps) |
 |------|-------|----------|-------------------|
-| **DocParse** | Yes | Planned | Yes (AILANG) |
+| **DocParse** | Yes | **Yes (8 formats)** | Yes (AILANG) |
 | python-docx | DOCX only | DOCX only | No (lxml, PIL) |
 | openpyxl | XLSX only | XLSX only | No (et_xmlfile) |
 | python-pptx | PPTX only | PPTX only | No (lxml, PIL) |
