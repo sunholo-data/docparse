@@ -73,7 +73,7 @@ diff <(./bin/docparse data/test_files/sample.docx) <(./bin/docparse-go data/test
 
 ## Verification Strategy
 
-1. **Output parity**: Binary produces identical JSON to interpreted version for all 18+ office test files
+1. **Output parity**: Binary produces identical JSON to interpreted version for all 53 golden test files
 2. **Benchmark parity**: `uv run benchmarks/run_benchmarks.py` passes with binary as backend
 3. **Performance**: Office parsing <50ms per file (vs ~500ms interpreted)
 4. **PDF parity**: Same scores on PDF benchmark with same model

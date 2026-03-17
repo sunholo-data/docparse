@@ -79,7 +79,7 @@ Old designs that have been superseded or abandoned.
 - Integration guides deferred (LangChain, LlamaIndex, Haystack)
 - OfficeDocBench formalization still TODO (first-of-its-kind Office structural benchmark)
 - [Design Doc](planned/v0_5_0/v0_5_0_ecosystem.md)
-- [External Benchmarks](planned/v0_2_0/external_benchmarks.md)
+- [External Benchmarks](planned/v0_5_0/external_benchmarks.md)
 
 ### v0.6.0 — Document Generation `UNBLOCKED`
 - Block ADT → file output (reverse of parsing)
