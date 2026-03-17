@@ -165,7 +165,9 @@ pure func pptxSlideXml(blocks: [Block]) -> string {
   "<p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>" ++
   "<p:grpSpPr/>" ++
   shapes ++
-  "</p:spTree></p:cSld></p:sld>"
+  "</p:spTree></p:cSld>" ++
+  "<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>" ++
+  "</p:sld>"
 }
 
 -- Convert blocks to PPTX shapes (text boxes positioned vertically)
@@ -348,13 +350,14 @@ pure func pptxSlideRels() -> string =
   "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout\" Target=\"../slideLayouts/slideLayout1.xml\"/>" ++
   "</Relationships>"
 
--- Minimal slide layout
+-- Minimal slide layout (must include clrMapOvr for Keynote)
 pure func pptxSlideLayout() -> string =
   xmlDecl() ++
   "<p:sldLayout xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " ++
   "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" " ++
   "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" type=\"blank\">" ++
   "<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>" ++
+  "<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>" ++
   "</p:sldLayout>"
 
 pure func pptxSlideLayoutRels() -> string =
@@ -363,13 +366,15 @@ pure func pptxSlideLayoutRels() -> string =
   "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster\" Target=\"../slideMasters/slideMaster1.xml\"/>" ++
   "</Relationships>"
 
--- Minimal slide master
+-- Minimal slide master (must include clrMap for Keynote to resolve theme colors)
 pure func pptxSlideMaster() -> string =
   xmlDecl() ++
   "<p:sldMaster xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " ++
   "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" " ++
   "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" ++
-  "<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>" ++
+  "<p:cSld><p:bg><p:bgRef idx=\"1001\"><a:schemeClr val=\"bg1\"/></p:bgRef></p:bg>" ++
+  "<p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>" ++
+  "<p:clrMap bg1=\"lt1\" tx1=\"dk1\" bg2=\"lt2\" tx2=\"dk2\" accent1=\"accent1\" accent2=\"accent2\" accent3=\"accent3\" accent4=\"accent4\" accent5=\"accent5\" accent6=\"accent6\" hlink=\"hlink\" folHlink=\"folHlink\"/>" ++
   "<p:sldLayoutIdLst><p:sldLayoutId id=\"2147483649\" r:id=\"rId1\"/></p:sldLayoutIdLst>" ++
   "</p:sldMaster>"
 
@@ -432,4 +437,6 @@ pure func pptxTheme() -> string =
   "<a:bgFillStyleLst><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:bgFillStyleLst>" ++
   "</a:fmtScheme>" ++
   "</a:themeElements>" ++
+  "<a:objectDefaults/>" ++
+  "<a:extraClrSchemeLst/>" ++
   "</a:theme>"
