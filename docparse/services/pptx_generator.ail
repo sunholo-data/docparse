@@ -48,7 +48,9 @@ export func generatePptx(doc: ParsedDocument, outputPath: string) -> string ! {F
   let masterRels = pptxSlideMasterRels();
 
   let theme = pptxTheme();
-  let themeContentType = "<Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>";
+  let presProps = pptxPresProps();
+  let viewProps = pptxViewProps();
+  let tableStyles = pptxTableStyles();
 
   let baseEntries = [
     {name: "[Content_Types].xml", content: contentTypes},
@@ -59,7 +61,10 @@ export func generatePptx(doc: ParsedDocument, outputPath: string) -> string ! {F
     {name: "ppt/slideLayouts/_rels/slideLayout1.xml.rels", content: layoutRels},
     {name: "ppt/slideMasters/slideMaster1.xml", content: master},
     {name: "ppt/slideMasters/_rels/slideMaster1.xml.rels", content: masterRels},
-    {name: "ppt/theme/theme1.xml", content: theme}
+    {name: "ppt/theme/theme1.xml", content: theme},
+    {name: "ppt/presProps.xml", content: presProps},
+    {name: "ppt/viewProps.xml", content: viewProps},
+    {name: "ppt/tableStyles.xml", content: tableStyles}
   ];
 
   let allEntries = pptxAppendEntries(baseEntries, slideEntries, slideRelEntries);
@@ -282,6 +287,9 @@ pure func pptxContentTypes(slideCount: int) -> string {
   "<Override PartName=\"/ppt/slideMasters/slideMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml\"/>" ++
   "<Override PartName=\"/ppt/slideLayouts/slideLayout1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml\"/>" ++
   "<Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>" ++
+  "<Override PartName=\"/ppt/presProps.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presProps+xml\"/>" ++
+  "<Override PartName=\"/ppt/viewProps.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml\"/>" ++
+  "<Override PartName=\"/ppt/tableStyles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml\"/>" ++
   pptxSlideContentTypes(slideCount, 1) ++
   "</Types>"
 }
@@ -312,20 +320,25 @@ pure func pptxPresentation(slideCount: int) -> string =
 
 pure func pptxSlideIds(count: int, idx: int) -> string =
   if idx > count then ""
-  else "<p:sldId id=\"" ++ intToStr(255 + idx) ++ "\" r:id=\"rId" ++ intToStr(idx + 1) ++ "\"/>" ++
+  else "<p:sldId id=\"" ++ intToStr(255 + idx) ++ "\" r:id=\"rId" ++ intToStr(idx + 5) ++ "\"/>" ++
        pptxSlideIds(count, idx + 1)
 
 -- Presentation relationships
+-- Presentation relationships: slideMaster=rId1, presProps=rId2, viewProps=rId3, theme=rId4, tableStyles=rId5, slides=rId6+
 pure func pptxPresentationRels(slideCount: int) -> string =
   xmlDecl() ++
   "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" ++
   "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster\" Target=\"slideMasters/slideMaster1.xml\"/>" ++
+  "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps\" Target=\"presProps.xml\"/>" ++
+  "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps\" Target=\"viewProps.xml\"/>" ++
+  "<Relationship Id=\"rId4\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme\" Target=\"theme/theme1.xml\"/>" ++
+  "<Relationship Id=\"rId5\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles\" Target=\"tableStyles.xml\"/>" ++
   pptxSlideRelsEntries(slideCount, 1) ++
   "</Relationships>"
 
 pure func pptxSlideRelsEntries(count: int, idx: int) -> string =
   if idx > count then ""
-  else "<Relationship Id=\"rId" ++ intToStr(idx + 1) ++ "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide" ++ intToStr(idx) ++ ".xml\"/>" ++
+  else "<Relationship Id=\"rId" ++ intToStr(idx + 5) ++ "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide" ++ intToStr(idx) ++ ".xml\"/>" ++
        pptxSlideRelsEntries(count, idx + 1)
 
 -- Slide relationship file (each slide references the layout)
@@ -366,6 +379,27 @@ pure func pptxSlideMasterRels() -> string =
   "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout\" Target=\"../slideLayouts/slideLayout1.xml\"/>" ++
   "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme\" Target=\"../theme/theme1.xml\"/>" ++
   "</Relationships>"
+
+-- Presentation properties (required by Keynote)
+pure func pptxPresProps() -> string =
+  xmlDecl() ++
+  "<p:presentationPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " ++
+  "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" " ++
+  "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"/>"
+
+-- View properties (required by Keynote)
+pure func pptxViewProps() -> string =
+  xmlDecl() ++
+  "<p:viewPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " ++
+  "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" " ++
+  "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" ++
+  "<p:slideViewPr><p:cSldViewPr><p:cViewPr varScale=\"1\"><p:scale><a:sx n=\"100\" d=\"100\"/><a:sy n=\"100\" d=\"100\"/></p:scale><p:origin x=\"0\" y=\"0\"/></p:cViewPr></p:cSldViewPr></p:slideViewPr>" ++
+  "</p:viewPr>"
+
+-- Table styles (required by Keynote for tables)
+pure func pptxTableStyles() -> string =
+  xmlDecl() ++
+  "<a:tblStyleLst xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" def=\"{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}\"/>"
 
 -- Minimal Office theme (required by Keynote and most PPTX readers)
 -- Defines a color scheme + font scheme. Without this, Keynote refuses to open the file.
