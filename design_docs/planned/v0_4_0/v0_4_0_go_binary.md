@@ -143,6 +143,76 @@ diff <(./bin/docparse data/test_files/sample.docx) \
 - PDF extraction works with at least Gemini backend
 - Single binary, no runtime dependencies (except Ollama for local models)
 
+## Benchmark Comparison Plan
+
+Run the same 53 golden files through both backends and compare:
+
+| Metric | AILANG interpreted | Go binary |
+|--------|-------------------|-----------|
+| Startup overhead | ~2-3s (type-check + effect-check) | ~0ms |
+| Per-file parse (Office) | ~500ms | Target <50ms |
+| Batch 53 files | ~3-5 min | Target <10s |
+| Output parity | baseline | must match exactly |
+| PDF (Gemini) | ~2-5s per page | Same (network-bound) |
+
+**Methodology**: Run `benchmarks/generate_golden.sh` with both backends, diff outputs,
+time each invocation. The Go binary should eliminate startup overhead entirely — that's
+where most of the interpreted time goes (not actual parsing).
+
+```bash
+# Compare outputs
+for f in data/test_files/*; do
+  diff <(./bin/docparse "$f") <(./bin/docparse-go "$f") || echo "MISMATCH: $f"
+done
+
+# Benchmark: interpreted vs compiled
+time ./bin/docparse data/test_files/sample.docx       # ~2.5s (startup-dominated)
+time ./bin/docparse-go data/test_files/sample.docx    # target: <100ms
+```
+
+## Deployment Strategy
+
+Three deployment options, from simplest to most performant:
+
+### Option 1: `ailang serve-api` (interpreted, ready now)
+
+```bash
+ailang serve-api --caps IO,FS,AI --ai gemini-2-5-flash docparse/ --port 8080
+```
+
+- Auto-generates REST endpoints for all exported functions
+- Built-in OpenAPI spec, Swagger UI, ReDoc
+- MCP server support (`--mcp-http`) for Claude Desktop / Cursor
+- A2A Agent Card at `/.well-known/agent.json`
+- Hot-reload with `--watch`
+- **Downside**: ~2-3s startup + interpreted overhead per request
+
+### Option 2: Go binary with HTTP harness (compiled, fast)
+
+Write a Go HTTP server that imports the compiled DocParse package and serves
+the same endpoints. No AILANG runtime needed at deployment.
+
+- Single static binary, trivially containerized
+- Sub-millisecond startup, <50ms per request for Office files
+- We write the HTTP routing ourselves (net/http or chi)
+- **Downside**: lose auto-generated OpenAPI/Swagger/MCP, must maintain manually
+
+### Option 3: Hybrid — `ailang serve-api` in dev, Go binary in prod
+
+Use `ailang serve-api --watch` during development (hot-reload, Swagger UI,
+rapid iteration). Deploy the Go binary in production (performance, single binary).
+Maintain API contract parity via the 53 golden file benchmark suite.
+
+**Recommendation**: Option 3. `ailang serve-api` is too good for development to give
+up (auto-OpenAPI, MCP, hot-reload). But production should be the Go binary for
+performance and deployment simplicity. The golden file benchmarks ensure parity.
+
+### Open question: will `ailang serve-api` itself compile to Go?
+
+If AILANG's serve-api infrastructure compiles via `--emit-go`, we get the best of both
+worlds: auto-generated OpenAPI/MCP + Go binary performance. Worth asking the AILANG
+team — this would make Option 2 and Option 3 obsolete.
+
 ## Risks
 
 - **Codegen bugs** (3 known, likely more) — AILANG's Go emitter is young
