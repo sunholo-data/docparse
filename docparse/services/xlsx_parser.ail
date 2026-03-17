@@ -123,7 +123,7 @@ export pure func parseSheetXml(xml: string, sharedStrings: [string], sheetName: 
   else {
     -- Use parseElements for streaming: only builds subtrees for <row> elements
     -- O(largest row) memory instead of O(entire document)
-    let parsedRows = match parseElements(xml, "row", xlsxMaxRows) {
+    let parsedRows = match parseElements(xml, "row", 5000) {
       Ok(rowNodes) => parseXlsxRows(rowNodes, sharedStrings),
       Err(_) => []
     };
@@ -179,10 +179,8 @@ pure func xlsxFormatSheetName(name: string) -> string {
   else name
 }
 
--- Max rows to parse per sheet (prevents CPU hang on pathological files like poi_many_merges.xlsx: 50K rows)
--- Row cap per sheet. With iterative Go builtins for map/flatMap/foldl,
--- this is now a practical limit, not a performance workaround.
-let xlsxMaxRows = 5000
+-- Row cap per sheet: 5000 (inlined in parseSheetXml to work around Go codegen bug
+-- where module-level let bindings used as function args kill codegen)
 
 -- Parse all rows
 pure func parseXlsxRows(rows: [XmlNode], sharedStrings: [string]) -> [[TableCell]] =

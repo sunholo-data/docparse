@@ -252,14 +252,10 @@ pure func evalIsCellMerged(cell: Json) -> bool =
 pure func evalTokenize(text: string) -> [string] =
   splitWords(toLower(text))
 
--- Max raw words before dedup. dedup is O(n²) on lists, so cap input
--- to keep eval fast on large docs (Moby Dick has 200K+ words).
--- 5000 raw words ≈ first ~20 pages, statistically representative for Jaccard.
-let evalMaxRawWords = 5000
-
 -- Collect unique words from elements (cap raw words before dedup to avoid O(n²) blowup)
+-- Cap at 5000 raw words ≈ first ~20 pages, statistically representative for Jaccard.
 pure func evalCollectWords(elements: [EvalElement]) -> [string] =
-  dedup(take(evalMaxRawWords, flatMap(\el. evalTokenize(el.elText), elements)))
+  dedup(take(5000, flatMap(\el. evalTokenize(el.elText), elements)))
 
 -- ================================================================
 -- Jaccard Similarity
