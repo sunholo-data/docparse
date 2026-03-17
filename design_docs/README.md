@@ -66,9 +66,11 @@ Old designs that have been superseded or abandoned.
 - [Parser Coverage](implemented/v0_3_0/v0_3_0_parser_coverage.md)
 - [AILANG Benchmark Eval](implemented/v0_3_0/ailang_benchmark_eval.md)
 
-### v0.4.0 — Go Binary `BLOCKED`
-- Compile to native Go binary via `ailang compile --emit-go`
-- Blocked on AILANG shipping `--with-default-handlers` (auto-generates effect handlers)
+### v0.4.0 — Go Binary `BLOCKED ON 3 CODEGEN BUGS`
+- All 19 modules compile to Go (406 declarations, 16K lines)
+- `go build` fails on: function name collisions, constant redeclaration, markdown codegen
+- Effect handler interfaces are clean — harness is ~200 lines (same pattern as stapledon's_voyage)
+- `--with-default-handlers` is nice-to-have, NOT a blocker
 - Target: 10-100x faster parsing, single binary distribution
 - [Design Doc](planned/v0_4_0/v0_4_0_go_binary.md)
 
