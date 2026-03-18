@@ -35,6 +35,8 @@ MODULES=(
   docparse/services/odp_parser.ail
   docparse/services/ods_parser.ail
   docparse/services/eval.ail
+  docparse/services/unstructured_compat.ail
+  docparse/services/api_server.ail
   docparse/main.ail
 )
 

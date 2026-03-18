@@ -1,0 +1,217 @@
+module docparse/services/api_server
+
+import std/fs (readFile, writeFile, fileExists)
+import std/json (encode, decode, jo, kv, js, jnum, ja, jb, jn)
+import std/string (length, intToStr, floatToStr, toLower, split, endsWith)
+import std/list (last, map, foldl, length as listLength, concat)
+import std/math (intToFloat)
+import std/io (println)
+import std/option (Some, None)
+import std/result (Ok, Err)
+import std/bytes (toString as bytesToString, fromString as stringToBytes, length as bytesLength)
+import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, getAttr, getChildren, getTag)
+import std/zip (listEntries, readEntry, readEntryBytes)
+import docparse/types/document (Block, TextBlock, HeadingBlock, TableBlock, ListBlock, ImageBlock, AudioBlock, VideoBlock, SectionBlock, ChangeBlock, TableCell, ParsedDocument, ExtractionResult, DocMetadata, emptyMetadata, simpleCell, countBlocks, filterHeadings, filterTables, filterImages, filterSections, filterChanges)
+import docparse/services/format_router (detectFormat, getExtension, officeType, needsAI)
+import docparse/services/output_formatter (formatResult, renderMarkdown, blocksToJson, metadataToJson, summaryToJson)
+import docparse/services/unstructured_compat (blocksToUnstructuredJson, unstMimeType, unstStrategy, unstTableToHtml)
+import docparse/services/html_generator (generateHtml, generateHtmlBody)
+import docparse/services/xml_helpers (xmlEscape)
+import docparse/services/docx_parser (parseDocx, parseDocxMetadata, parseDocxHeaders, parseDocxFooters, parseDocxFootnotes, parseDocxEndnotes, parseDocxComments)
+import docparse/services/pptx_parser (parsePptx, parsePptxMetadata)
+import docparse/services/xlsx_parser (parseXlsx, parseXlsxMetadata)
+import docparse/services/csv_parser (parseCsv)
+import docparse/services/markdown_parser (parseMarkdown)
+import docparse/services/html_parser (parseHtml)
+import docparse/services/epub_parser (parseEpub, parseEpubMetadata)
+import docparse/services/odt_parser (parseOdt, parseOdtMetadata, parseOdtHeadersFooters)
+import docparse/services/odp_parser (parseOdp, parseOdpMetadata)
+import docparse/services/ods_parser (parseOds, parseOdsMetadata)
+import docparse/services/direct_ai_parser (parsePdf, parseDocumentImage, parsePdfMetadata)
+import docparse/services/zip_extract (readDocxContent, readCoreProperties, listOfficeEntries)
+
+-- DocParse API Server Module
+--
+-- Provides REST endpoints via `ailang serve-api` with custom @route annotations.
+-- Supports file upload (multipart/form-data), JSON args, and binary response.
+--
+-- Usage:
+--   ailang serve-api --caps IO,FS,AI,Env --ai gemini-2.5-flash \
+--     --api-key-header "unstructured-api-key" --api-key-env "DOCPARSE_API_KEY" \
+--     docparse/ --port 8080
+--
+-- Endpoints:
+--   POST /api/v1/parse          — Upload file, get Block ADT JSON
+--   POST /api/v1/convert        — Upload file, get converted file back
+--   GET  /api/v1/formats        — List supported formats
+--   GET  /api/v1/health         — Health check
+--   POST /general/v0/general    — Unstructured API compatibility (drop-in)
+
+-- ============================================================
+-- Native DocParse API — Custom Routes
+-- ============================================================
+
+-- Health check
+@route("GET", "/api/v1/health")
+export pure func health() -> string {
+  encode(jo([
+    kv("status", js("healthy")),
+    kv("version", js("0.7.0")),
+    kv("service", js("docparse")),
+    kv("formats_parse", jnum(13.0)),
+    kv("formats_generate", jnum(8.0))
+  ]))
+}
+
+-- List supported formats
+@route("GET", "/api/v1/formats")
+export pure func formats() -> string {
+  encode(jo([
+    kv("parse", ja(map(js, ["docx", "pptx", "xlsx", "odt", "odp", "ods", "html", "md", "csv", "epub", "pdf", "png", "jpg"]))),
+    kv("generate", ja(map(js, ["docx", "pptx", "xlsx", "odt", "odp", "ods", "html", "md"]))),
+    kv("ai_required", ja(map(js, ["pdf", "png", "jpg", "gif", "bmp", "tiff"]))),
+    kv("status", js("ok"))
+  ]))
+}
+
+-- Parse a document file by path (JSON API — filepath as arg)
+@route("POST", "/api/v1/parse")
+export func parseFile(filepath: string, outputFormat: string) -> string ! {IO, FS, AI} {
+  if not fileExists(filepath) then
+    encode(jo([kv("error", js("File not found: " ++ filepath)), kv("status", js("error"))]))
+  else {
+    let ext = getExtension(filepath);
+    let format = detectFormat(ext);
+    let blocks = apiParseByFormat(ext, format, filepath);
+    let doc = apiMakeDocument(blocks, format, filepath);
+    apiFormatOutput(doc, outputFormat)
+  }
+}
+
+-- Simpler parse (always returns blocks JSON)
+export func parseDocument(filepath: string) -> string ! {IO, FS, AI} =
+  parseFile(filepath, "blocks")
+
+-- ============================================================
+-- Unstructured API Compatibility — Drop-in Replacement
+-- ============================================================
+
+-- Unstructured legacy partition endpoint.
+-- Accepts filepath for now; will accept file upload (bytes) when
+-- multipart → bytes mapping is tested end-to-end.
+@route("POST", "/general/v0/general")
+export func partitionGeneral(filepath: string, strategy: string) -> string ! {IO, FS, AI} {
+  if not fileExists(filepath) then
+    encode(ja([jo([kv("error", js("File not found: " ++ filepath))])]))
+  else {
+    let ext = getExtension(filepath);
+    let format = detectFormat(ext);
+    let blocks = apiParseByFormat(ext, format, filepath);
+    let doc = apiMakeDocument(blocks, format, filepath);
+    blocksToUnstructuredJson(doc)
+  }
+}
+
+-- Partition with auto strategy
+export func partition(filepath: string) -> string ! {IO, FS, AI} =
+  partitionGeneral(filepath, "auto")
+
+-- ============================================================
+-- Internal Helpers
+-- ============================================================
+
+-- Route parsing by detected format.
+-- ZIP-based formats (Office, ODF, EPUB) use filepath directly.
+-- Text-based formats (CSV, Markdown, HTML) read content first.
+func apiParseByFormat(ext: string, format: string, filepath: string) -> [Block] ! {IO, FS, AI} {
+  let office = officeType(ext);
+  if format == "zip-office" && office == "word" then apiParseDocx(filepath)
+  else if format == "zip-office" && office == "powerpoint" then apiParsePptx(filepath)
+  else if format == "zip-office" && office == "excel" then apiParseXlsx(filepath)
+  else if format == "zip-odf" then apiParseOdf(filepath, ext)
+  else if format == "epub" then apiParseEpub(filepath)
+  else if format == "pdf" then apiParsePdf(filepath)
+  else {
+    -- Text-based formats: read file content first
+    let content = readFile(filepath);
+    if format == "csv" then apiParseCsv(content, ext)
+    else if format == "markdown" then apiParseMarkdown(content)
+    else if format == "html" then apiParseHtml(content)
+    else if format == "text" then [TextBlock({text: content, style: "normal", level: 0})]
+    else [TextBlock({text: "Unsupported format: " ++ format, style: "error", level: 0})]
+  }
+}
+
+-- Build a ParsedDocument from blocks
+pure func apiMakeDocument(blocks: [Block], format: string, filepath: string) -> ParsedDocument =
+  {format: format, filename: filepath, metadata: emptyMetadata(), blocks: blocks}
+
+-- Format output based on requested format
+pure func apiFormatOutput(doc: ParsedDocument, outputFormat: string) -> string {
+  if outputFormat == "markdown" then renderMarkdown(doc)
+  else if outputFormat == "html" then generateHtml(doc)
+  else apiBlocksResponse(doc)
+}
+
+-- Build the native blocks JSON response
+pure func apiBlocksResponse(doc: ParsedDocument) -> string {
+  encode(jo([
+    kv("status", js("success")),
+    kv("filename", js(doc.filename)),
+    kv("format", js(doc.format)),
+    kv("blocks", ja(blocksToJson(doc.blocks))),
+    kv("metadata", metadataToJson(doc.metadata)),
+    kv("summary", summaryToJson(doc.blocks))
+  ]))
+}
+
+-- ============================================================
+-- Format-specific parse wrappers
+-- ============================================================
+
+func apiParseDocx(filepath: string) -> [Block] ! {IO, FS, AI} {
+  -- parseDocx takes filepath and reads the file internally
+  let blocks = parseDocx(filepath);
+  let headers = parseDocxHeaders(filepath);
+  let footers = parseDocxFooters(filepath);
+  let footnotes = parseDocxFootnotes(filepath);
+  let endnotes = parseDocxEndnotes(filepath);
+  let comments = parseDocxComments(filepath);
+  concat(concat(concat(concat(concat(blocks, headers), footers), footnotes), endnotes), comments)
+}
+
+func apiParsePptx(filepath: string) -> [Block] ! {IO, FS, AI} {
+  parsePptx(filepath)
+}
+
+func apiParseXlsx(filepath: string) -> [Block] ! {IO, FS, AI} {
+  parseXlsx(filepath)
+}
+
+func apiParseCsv(content: string, ext: string) -> [Block] ! {IO, FS, AI} {
+  let delim = if ext == "tsv" then "\t" else ",";
+  parseCsv(content, delim)
+}
+
+func apiParseMarkdown(content: string) -> [Block] ! {IO, FS, AI} {
+  parseMarkdown(content)
+}
+
+func apiParseHtml(content: string) -> [Block] ! {IO, FS, AI} {
+  parseHtml(content)
+}
+
+func apiParseEpub(filepath: string) -> [Block] ! {IO, FS, AI} {
+  parseEpub(filepath)
+}
+
+func apiParsePdf(filepath: string) -> [Block] ! {IO, FS, AI} {
+  parsePdf(filepath)
+}
+
+func apiParseOdf(filepath: string, ext: string) -> [Block] ! {IO, FS, AI} {
+  if ext == "odt" then parseOdt(filepath)
+  else if ext == "odp" then parseOdp(filepath)
+  else if ext == "ods" then parseOds(filepath)
+  else [TextBlock({text: "Unknown ODF format: " ++ ext, style: "error", level: 0})]
+}

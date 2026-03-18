@@ -1,0 +1,10 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+benchmarks/omnidocbench/
+benchmarks/competitors/
+design_docs/
+.claude/
+node_modules/
+*.egg-info/
