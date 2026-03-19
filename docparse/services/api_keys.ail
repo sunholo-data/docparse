@@ -450,6 +450,8 @@ func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, FS, Net, Env} 
 }
 
 -- Fetch a key document
+-- Returns JSON string. httpRequest may return pre-parsed values (RecordValue)
+-- so we encode() the result back to a JSON string for our pure parsers.
 func apiKeyFetchDoc(keyId: string) -> string ! {IO, FS, Net, Env} {
   if apiKeyIsStub() then {
     let path = "/tmp/docparse_keys/" ++ keyId ++ ".json";
@@ -463,12 +465,15 @@ func apiKeyFetchDoc(keyId: string) -> string ! {IO, FS, Net, Env} {
       {name: "Authorization", value: "Bearer " ++ token},
       {name: "Content-Type", value: "application/json"}
     ];
+    -- NOTE: httpRequest currently returns pre-parsed RecordValue in Ok() instead of string.
+    -- This breaks decode() downstream. Waiting on AILANG fix to return raw strings.
     match httpRequest("GET", url, headers, "") {
       Ok(body) => body,
-      Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+      Err(e) => ""
     }
   }
 }
+
 
 -- Update specific fields in a key document
 func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string]) -> string ! {IO, FS, Net, Env} {
@@ -493,15 +498,21 @@ func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string])
   }
 }
 
--- Get access token from GCP metadata server (Cloud Run ADC)
-func apiKeyGetAccessToken() -> string ! {Net} {
-  let metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
-  let headers = [{name: "Metadata-Flavor", value: "Google"}];
-  let response = match httpRequest("GET", metadataUrl, headers, "") {
-    Ok(body) => body,
-    Err(_) => ""
-  };
-  apiKeyExtractToken(response)
+-- Get access token: env var first (local dev), then metadata server (Cloud Run)
+func apiKeyGetAccessToken() -> string ! {Net, Env} {
+  -- Check for explicit token (local dev: export GOOGLE_ACCESS_TOKEN=$(gcloud auth application-default print-access-token))
+  let envToken = getEnvOr("GOOGLE_ACCESS_TOKEN", "");
+  if length(envToken) > 0 then envToken
+  else {
+    -- Cloud Run: get token from metadata server
+    let metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
+    let headers = [{name: "Metadata-Flavor", value: "Google"}];
+    let response = match httpRequest("GET", metadataUrl, headers, "") {
+      Ok(body) => body,
+      Err(_) => ""
+    };
+    apiKeyExtractToken(response)
+  }
 }
 
 -- ============================================================
