@@ -184,7 +184,7 @@ export func listApiKeys(userId: string) -> string ! {IO, FS, Net, Env} {
       {name: "Content-Type", value: "application/json"}
     ];
     let response = match httpRequest("GET", url, headers, "") {
-      Ok(body) => body,
+      Ok(resp) => resp.body,
       Err(e) => ""
     };
     apiKeyFormatList(response, userId)
@@ -443,15 +443,13 @@ func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, FS, Net, Env} 
       {name: "Content-Type", value: "application/json"}
     ];
     match httpRequest("POST", url, headers, docJson) {
-      Ok(body) => body,
+      Ok(resp) => resp.body,
       Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
     }
   }
 }
 
--- Fetch a key document
--- Returns JSON string. httpRequest may return pre-parsed values (RecordValue)
--- so we encode() the result back to a JSON string for our pure parsers.
+-- Fetch a key document from Firestore. Returns JSON string.
 func apiKeyFetchDoc(keyId: string) -> string ! {IO, FS, Net, Env} {
   if apiKeyIsStub() then {
     let path = "/tmp/docparse_keys/" ++ keyId ++ ".json";
@@ -465,10 +463,8 @@ func apiKeyFetchDoc(keyId: string) -> string ! {IO, FS, Net, Env} {
       {name: "Authorization", value: "Bearer " ++ token},
       {name: "Content-Type", value: "application/json"}
     ];
-    -- NOTE: httpRequest currently returns pre-parsed RecordValue in Ok() instead of string.
-    -- This breaks decode() downstream. Waiting on AILANG fix to return raw strings.
     match httpRequest("GET", url, headers, "") {
-      Ok(body) => body,
+      Ok(resp) => resp.body,
       Err(e) => ""
     }
   }
@@ -492,7 +488,7 @@ func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string])
       {name: "Content-Type", value: "application/json"}
     ];
     match httpRequest("PATCH", url, headers, fieldsJson) {
-      Ok(body) => body,
+      Ok(resp) => resp.body,
       Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
     }
   }
@@ -508,7 +504,7 @@ func apiKeyGetAccessToken() -> string ! {Net, Env} {
     let metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
     let headers = [{name: "Metadata-Flavor", value: "Google"}];
     let response = match httpRequest("GET", metadataUrl, headers, "") {
-      Ok(body) => body,
+      Ok(resp) => resp.body,
       Err(_) => ""
     };
     apiKeyExtractToken(response)
