@@ -39,6 +39,7 @@ import std/xml (parse, findAll, findAllTexts, findAllAttrs, findFirst, getText, 
 import std/zip (listEntries, readEntry, readEntryBytes)
 import std/ai (call)
 import std/io (println)
+import std/crypto (sha256Hex, constantTimeEqual)
 import std/math (intToFloat, floatToInt)
 import std/env (getArgs, getEnvOr)
 

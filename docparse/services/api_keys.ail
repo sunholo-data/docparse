@@ -11,6 +11,7 @@ import std/env (getEnvOr)
 import std/io (println)
 import std/math (intToFloat)
 import std/clock (now)
+import std/crypto (sha256Hex, constantTimeEqual)
 
 -- API Key Management Module
 --
@@ -353,47 +354,14 @@ func apiKeyGenHexParts(n: int, hexChars: string) -> [string] ! {Rand} =
   }
 
 -- ============================================================
--- Key Hashing (simple, not cryptographic)
--- TODO: replace with std/crypto SHA-256 when available
+-- Key Hashing (SHA-256 via std/crypto)
 -- ============================================================
 
--- Simple deterministic hash. NOT cryptographic — sufficient for
--- key identification but should be replaced with SHA-256 when
--- std/crypto is available.
+-- Cryptographic hash of API key using SHA-256.
+-- Returns 64-char hex string. Pure, no capabilities needed.
 pure func apiKeyHash(key: string) -> string
-  ensures { length(result) == 16 }
-{
-  let h = foldl(\acc c. acc * 31 + c, 7, apiKeyCharCodes(key, 0, length(key)));
-  let absH = if h < 0 then 0 - h else h;
-  apiKeyIntToHex(absH, 16)
-}
-
-pure func apiKeyCharCodes(s: string, idx: int, len: int) -> [int] =
-  if idx >= len then []
-  else
-    let ch = substring(s, idx, idx + 1) in
-    apiKeyCharToInt(ch) :: apiKeyCharCodes(s, idx + 1, len)
-
--- Z3-verifiable: character mapping always returns valid ASCII code
-pure func apiKeyCharToInt(ch: string) -> int
-  ensures { result >= 48 && result <= 122 || result == 63 || result == 95 }
-=
-  if ch == "0" then 48 else if ch == "1" then 49 else if ch == "2" then 50
-  else if ch == "3" then 51 else if ch == "4" then 52 else if ch == "5" then 53
-  else if ch == "6" then 54 else if ch == "7" then 55 else if ch == "8" then 56
-  else if ch == "9" then 57
-  else if ch == "a" then 97 else if ch == "b" then 98 else if ch == "c" then 99
-  else if ch == "d" then 100 else if ch == "e" then 101 else if ch == "f" then 102
-  else if ch == "_" then 95 else if ch == "p" then 112
-  else 63
-
--- Z3-verifiable: hex remainder is always 0-15
-pure func apiKeyHexRemainder(n: int) -> int
-  ensures { result >= 0 && result <= 15 }
-{
-  let r = n - ((n / 16) * 16);
-  if r < 0 then 0 - r else r
-}
+  ensures { length(result) == 64 }
+= sha256Hex(key)
 
 -- Z3-verifiable: key prefix is always "dp_"
 pure func apiKeyPrefix() -> string
@@ -414,14 +382,6 @@ pure func apiKeyIsValid(key: string) -> bool
     substring(key, 0, 3) == "dp_"
   else false
 }
-
-pure func apiKeyIntToHex(n: int, digits: int) -> string =
-  if digits <= 0 then ""
-  else
-    let remainder = apiKeyHexRemainder(n) in
-    let hexChars = "0123456789abcdef" in
-    let digit = substring(hexChars, remainder, remainder + 1) in
-    apiKeyIntToHex(n / 16, digits - 1) ++ digit
 
 -- ============================================================
 -- Firestore URL Helpers (configurable database name)
@@ -511,9 +471,9 @@ func apiKeyCheckQuotaFromDoc(docResponse: string, expectedHash: string, keyId: s
         Some(fields) =>
           let storedHash = apiKeyGetFieldString(fields, "keyHash") in
           let active = apiKeyGetFieldBool(fields, "active") in
-          if storedHash == expectedHash && active == false then
+          if constantTimeEqual(storedHash, expectedHash) && active == false then
             encode(jo([kv("allowed", jb(false)), kv("error", js("Key has been revoked"))]))
-          else if storedHash == expectedHash == false then
+          else if constantTimeEqual(storedHash, expectedHash) == false then
             encode(jo([kv("allowed", jb(false)), kv("error", js("Invalid key"))]))
           else {
             -- Key is valid and active — check quotas
@@ -743,7 +703,7 @@ pure func apiKeyValidateResponse(response: string, expectedHash: string) -> stri
         Some(f) =>
           let storedHash = apiKeyGetFieldString(f, "keyHash") in
           let active = apiKeyGetFieldBool(f, "active") in
-          if storedHash == expectedHash && active
+          if constantTimeEqual(storedHash, expectedHash) && active
           then apiKeyGetFieldString(f, "userId")
           else ""
         ,
