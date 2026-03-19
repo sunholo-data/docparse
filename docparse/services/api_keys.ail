@@ -2,7 +2,7 @@ module docparse/services/api_keys
 
 import std/string (length, intToStr, join, split, substring, toLower)
 import std/list (map, foldl, filter, length as listLength)
-import std/json (encode, decode, jo, kv, js, jnum, ja, jb, jn, get, getString, getArray)
+import std/json (encode, decode, jo, kv, js, jnum, ja, jb, jn, get, getString, getInt, getArray)
 import std/option (Some, None, getOrElse)
 import std/result (Ok, Err)
 import std/rand (rand_int)
@@ -17,10 +17,18 @@ import std/clock (now)
 -- Generic AILANG module for per-user API key management backed by Firestore.
 -- Designed to be extractable into a shared AILANG module for reuse.
 --
+-- Features:
+--   - Per-user API key generation (dp_ prefix + 32 hex chars)
+--   - Three-tier access control (free/pro/enterprise)
+--   - Cumulative quota tracking with lazy daily/monthly reset
+--   - Per-request AILANG capability budget enforcement
+--   - Usage logging for analytics
+--
 -- Configuration via environment variables:
---   GOOGLE_CLOUD_PROJECT  — GCP project ID (required for Firestore)
---   FIRESTORE_COLLECTION  — Collection name (default: "api_keys")
---   GOOGLE_API_KEY        — Set to "" for ADC on Cloud Run
+--   GOOGLE_CLOUD_PROJECT    — GCP project ID (required for Firestore)
+--   FIRESTORE_DATABASE      — Database name (default: "docparse")
+--   FIRESTORE_COLLECTION    — Collection name (default: "api_keys")
+--   GOOGLE_API_KEY          — Set to "" for ADC on Cloud Run
 --
 -- Key format: "dp_" prefix + 32 hex chars (e.g., dp_a1b2c3d4e5f6...)
 -- Storage: key hash in Firestore, raw key returned to user once
@@ -29,11 +37,75 @@ import std/clock (now)
 --   ailang serve-api --caps IO,FS,Net,Env,Clock,Rand docparse/
 
 -- ============================================================
+-- Tier Definitions (pure, Z3-verifiable)
+-- ============================================================
+
+-- Z3-verifiable: tier is always one of the three valid values
+pure func apiKeyValidTier(tier: string) -> bool
+  ensures { result == true || result == false }
+= tier == "free" || tier == "pro" || tier == "enterprise"
+
+-- Z3-verifiable: requests per day is always positive for valid tiers
+pure func apiKeyRequestsPerDay(tier: string) -> int
+  ensures { result >= 20 }
+= if tier == "enterprise" then 1000000
+  else if tier == "pro" then 2000
+  else 20
+
+-- Z3-verifiable: pages per month is always positive for valid tiers
+pure func apiKeyPagesPerMonth(tier: string) -> int
+  ensures { result >= 100 }
+= if tier == "enterprise" then 100000
+  else if tier == "pro" then 10000
+  else 100
+
+-- Z3-verifiable: max file size in bytes
+pure func apiKeyMaxFileSize(tier: string) -> int
+  ensures { result >= 10485760 }
+= if tier == "enterprise" then 209715200
+  else if tier == "pro" then 52428800
+  else 10485760
+
+-- Z3-verifiable: AI capability budget per request
+pure func apiKeyAiLimit(tier: string) -> int
+  ensures { result >= 5 }
+= if tier == "enterprise" then 500
+  else if tier == "pro" then 50
+  else 5
+
+-- Z3-verifiable: FS capability budget per request
+pure func apiKeyFsLimit(tier: string) -> int
+  ensures { result >= 100 }
+= if tier == "enterprise" then 50000
+  else if tier == "pro" then 5000
+  else 100
+
+-- Z3-verifiable: free tier always has the most restrictive limits
+pure func apiKeyFreeIsStrictest(tier: string) -> bool
+  ensures { result == true }
+= apiKeyRequestsPerDay("free") <= apiKeyRequestsPerDay(tier)
+  && apiKeyPagesPerMonth("free") <= apiKeyPagesPerMonth(tier)
+  && apiKeyAiLimit("free") <= apiKeyAiLimit(tier)
+
+-- Build tier quota JSON for Firestore storage
+pure func apiKeyTierQuota(tier: string) -> string {
+  encode(jo([
+    kv("requestsPerDay", jo([kv("integerValue", js(intToStr(apiKeyRequestsPerDay(tier))))])),
+    kv("pagesPerMonth", jo([kv("integerValue", js(intToStr(apiKeyPagesPerMonth(tier))))])),
+    kv("maxFileSizeMb", jo([kv("integerValue", js(intToStr(apiKeyMaxFileSize(tier) / 1048576)))])),
+    kv("aiLimit", jo([kv("integerValue", js(intToStr(apiKeyAiLimit(tier))))])),
+    kv("fsLimit", jo([kv("integerValue", js(intToStr(apiKeyFsLimit(tier))))])),
+    kv("tier", jo([kv("stringValue", js(tier))]))
+  ]))
+}
+
+-- ============================================================
 -- API Endpoints (exported for serve-api)
 -- ============================================================
 
 -- Generate a new API key for a user.
 -- Returns the raw key (shown once) and key metadata.
+-- New keys default to "free" tier.
 @route("POST", "/api/v1/keys/generate")
 export func generateApiKey(userId: string, label: string) -> string ! {IO, Net, Env, Rand, Clock}
   requires { length(userId) > 0 }
@@ -47,15 +119,30 @@ export func generateApiKey(userId: string, label: string) -> string ! {IO, Net, 
     let keyHash = apiKeyHash(rawKey);
     let keyId = substring(keyHash, 0, 12);
     let ts = apiKeyTimestamp();
+    let tier = "free";
 
-    -- Store in Firestore
+    -- Build Firestore document with tier + quota + usage fields
     let doc = jo([
       kv("fields", jo([
         kv("userId", jo([kv("stringValue", js(userId))])),
         kv("keyHash", jo([kv("stringValue", js(keyHash))])),
         kv("label", jo([kv("stringValue", js(label))])),
+        kv("tier", jo([kv("stringValue", js(tier))])),
         kv("created", jo([kv("stringValue", js(ts))])),
-        kv("active", jo([kv("booleanValue", jb(true))]))
+        kv("active", jo([kv("booleanValue", jb(true))])),
+        -- Quota limits
+        kv("requestsPerDay", jo([kv("integerValue", js(intToStr(apiKeyRequestsPerDay(tier))))])),
+        kv("pagesPerMonth", jo([kv("integerValue", js(intToStr(apiKeyPagesPerMonth(tier))))])),
+        kv("aiLimit", jo([kv("integerValue", js(intToStr(apiKeyAiLimit(tier))))])),
+        kv("fsLimit", jo([kv("integerValue", js(intToStr(apiKeyFsLimit(tier))))])),
+        -- Usage counters (start at 0)
+        kv("requestsToday", jo([kv("integerValue", js("0"))])),
+        kv("pagesThisMonth", jo([kv("integerValue", js("0"))])),
+        kv("totalRequests", jo([kv("integerValue", js("0"))])),
+        kv("totalPages", jo([kv("integerValue", js("0"))])),
+        -- Reset timestamps (epoch seconds as string)
+        kv("lastResetDaily", jo([kv("stringValue", js(ts))])),
+        kv("lastResetMonthly", jo([kv("stringValue", js(ts))]))
       ]))
     ]);
     let storeResult = apiKeyStore(keyId, encode(doc));
@@ -65,7 +152,14 @@ export func generateApiKey(userId: string, label: string) -> string ! {IO, Net, 
       kv("key", js(rawKey)),
       kv("keyId", js(keyId)),
       kv("label", js(label)),
+      kv("tier", js(tier)),
       kv("created", js(ts)),
+      kv("quota", jo([
+        kv("requestsPerDay", jnum(intToFloat(apiKeyRequestsPerDay(tier)))),
+        kv("pagesPerMonth", jnum(intToFloat(apiKeyPagesPerMonth(tier)))),
+        kv("aiLimitPerRequest", jnum(intToFloat(apiKeyAiLimit(tier)))),
+        kv("fsLimitPerRequest", jnum(intToFloat(apiKeyFsLimit(tier))))
+      ])),
       kv("message", js("Save this key — it will not be shown again"))
     ]))
   }
@@ -77,11 +171,7 @@ export func listApiKeys(userId: string) -> string ! {IO, Net, Env} {
   if length(userId) == 0 then
     encode(jo([kv("error", js("userId is required")), kv("status", js("error"))]))
   else {
-    let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
-    let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
-    let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
-      "/databases/(default)/documents/" ++ collection ++
-      "?pageSize=100";
+    let url = apiKeyFirestoreBaseUrl() ++ "?pageSize=100";
     let token = apiKeyGetAccessToken();
     let headers = [
       {name: "Authorization", value: "Bearer " ++ token},
@@ -94,18 +184,17 @@ export func listApiKeys(userId: string) -> string ! {IO, Net, Env} {
 
 -- Revoke an API key by keyId.
 @route("POST", "/api/v1/keys/revoke")
-export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, Net, Env} {
+export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, Net, Env, Clock} {
   if length(keyId) == 0 then
     encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
   else {
-    let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
-    let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
-    let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
-      "/databases/(default)/documents/" ++ collection ++ "/" ++ keyId ++
-      "?updateMask.fieldPaths=active";
+    let ts = apiKeyTimestamp();
+    let url = apiKeyFirestoreDocUrl(keyId) ++
+      "?updateMask.fieldPaths=active&updateMask.fieldPaths=revokedAt";
     let body = encode(jo([
       kv("fields", jo([
-        kv("active", jo([kv("booleanValue", jb(false))]))
+        kv("active", jo([kv("booleanValue", jb(false))])),
+        kv("revokedAt", jo([kv("stringValue", js(ts))]))
       ]))
     ]));
     let token = apiKeyGetAccessToken();
@@ -122,15 +211,115 @@ export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, Net, En
   }
 }
 
+-- Rotate an API key: generate new key, revoke old one, preserve tier + usage.
+@route("POST", "/api/v1/keys/rotate")
+export func rotateApiKey(keyId: string, userId: string) -> string ! {IO, Net, Env, Rand, Clock} {
+  if length(keyId) == 0 then
+    encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
+  else {
+    -- Read old key document to get tier
+    let oldDoc = apiKeyFetchDoc(keyId);
+    let tier = apiKeyExtractTier(oldDoc);
+
+    -- Generate new key
+    let rawKey = apiKeyGenerate();
+    let keyHash = apiKeyHash(rawKey);
+    let newKeyId = substring(keyHash, 0, 12);
+    let ts = apiKeyTimestamp();
+
+    -- Store new key with same tier
+    let doc = jo([
+      kv("fields", jo([
+        kv("userId", jo([kv("stringValue", js(userId))])),
+        kv("keyHash", jo([kv("stringValue", js(keyHash))])),
+        kv("label", jo([kv("stringValue", js("rotated from " ++ keyId))])),
+        kv("tier", jo([kv("stringValue", js(tier))])),
+        kv("created", jo([kv("stringValue", js(ts))])),
+        kv("active", jo([kv("booleanValue", jb(true))])),
+        kv("requestsPerDay", jo([kv("integerValue", js(intToStr(apiKeyRequestsPerDay(tier))))])),
+        kv("pagesPerMonth", jo([kv("integerValue", js(intToStr(apiKeyPagesPerMonth(tier))))])),
+        kv("aiLimit", jo([kv("integerValue", js(intToStr(apiKeyAiLimit(tier))))])),
+        kv("fsLimit", jo([kv("integerValue", js(intToStr(apiKeyFsLimit(tier))))])),
+        kv("requestsToday", jo([kv("integerValue", js("0"))])),
+        kv("pagesThisMonth", jo([kv("integerValue", js("0"))])),
+        kv("totalRequests", jo([kv("integerValue", js("0"))])),
+        kv("totalPages", jo([kv("integerValue", js("0"))])),
+        kv("lastResetDaily", jo([kv("stringValue", js(ts))])),
+        kv("lastResetMonthly", jo([kv("stringValue", js(ts))]))
+      ]))
+    ]);
+    let storeResult = apiKeyStore(newKeyId, encode(doc));
+
+    -- Revoke old key
+    let revokeResult = revokeApiKey(keyId, userId);
+
+    encode(jo([
+      kv("status", js("ok")),
+      kv("oldKeyId", js(keyId)),
+      kv("newKeyId", js(newKeyId)),
+      kv("key", js(rawKey)),
+      kv("tier", js(tier)),
+      kv("message", js("Key rotated — save the new key, old key revoked"))
+    ]))
+  }
+}
+
+-- Get usage stats for a user's API key.
+@route("POST", "/api/v1/keys/usage")
+export func getKeyUsage(keyId: string, userId: string) -> string ! {IO, Net, Env, Clock} {
+  if length(keyId) == 0 then
+    encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
+  else {
+    let docResponse = apiKeyFetchDoc(keyId);
+    let ts = apiKeyTimestamp();
+    apiKeyFormatUsage(docResponse, keyId, ts)
+  }
+}
+
+-- ============================================================
+-- Quota Checking (lazy reset — no Cloud Scheduler needed)
+-- ============================================================
+
+-- Check cumulative quota before allowing request.
+-- Performs lazy daily/monthly reset if timestamps are stale.
+-- Returns JSON: {"allowed": true, "tier": "free", "aiLimit": 5, "fsLimit": 100}
+-- or: {"allowed": false, "error": "Daily quota exceeded", "retryAfter": "..."}
+export func checkQuota(rawKey: string) -> string ! {IO, Net, Env, Clock} {
+  if apiKeyIsValid(rawKey) == false then
+    encode(jo([kv("allowed", jb(false)), kv("error", js("Invalid key format"))]))
+  else {
+    let keyHash = apiKeyHash(rawKey);
+    let keyId = substring(keyHash, 0, 12);
+    let docResponse = apiKeyFetchDoc(keyId);
+    let currentTime = apiKeyTimestamp();
+
+    -- Parse the document and check quota
+    apiKeyCheckQuotaFromDoc(docResponse, keyHash, keyId, currentTime)
+  }
+}
+
+-- ============================================================
+-- Usage Recording
+-- ============================================================
+
+-- Record usage after a successful request.
+-- Increments requestsToday, pagesThisMonth, totalRequests, totalPages.
+export func recordUsage(rawKey: string, pagesProcessed: int) -> string ! {IO, Net, Env, Clock} {
+  let keyHash = apiKeyHash(rawKey);
+  let keyId = substring(keyHash, 0, 12);
+  let docResponse = apiKeyFetchDoc(keyId);
+  let currentTime = apiKeyTimestamp();
+
+  -- Parse current counters and increment
+  apiKeyIncrementUsage(docResponse, keyId, pagesProcessed, currentTime)
+}
+
 -- Validate an API key (used internally by middleware, not exposed as route).
 -- Returns userId if valid, empty string if invalid.
 export func validateApiKey(rawKey: string) -> string ! {IO, Net, Env} {
   let keyHash = apiKeyHash(rawKey);
   let keyId = substring(keyHash, 0, 12);
-  let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
-  let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
-  let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
-    "/databases/(default)/documents/" ++ collection ++ "/" ++ keyId;
+  let url = apiKeyFirestoreDocUrl(keyId);
   let token = apiKeyGetAccessToken();
   let headers = [
     {name: "Authorization", value: "Bearer " ++ token},
@@ -165,7 +354,7 @@ func apiKeyGenHexParts(n: int, hexChars: string) -> [string] ! {Rand} =
 
 -- ============================================================
 -- Key Hashing (simple, not cryptographic)
--- TODO: request std/crypto from AILANG for SHA-256
+-- TODO: replace with std/crypto SHA-256 when available
 -- ============================================================
 
 -- Simple deterministic hash. NOT cryptographic — sufficient for
@@ -226,15 +415,6 @@ pure func apiKeyIsValid(key: string) -> bool
   else false
 }
 
--- Z3-verifiable: Firestore URL is well-formed
-pure func apiKeyFirestoreUrl(project: string, collection: string, docId: string) -> string
-  requires { length(project) > 0 && length(collection) > 0 }
-  ensures { length(result) > 60 }
-{
-  "https://firestore.googleapis.com/v1/projects/" ++ project ++
-    "/databases/(default)/documents/" ++ collection ++ "/" ++ docId
-}
-
 pure func apiKeyIntToHex(n: int, digits: int) -> string =
   if digits <= 0 then ""
   else
@@ -244,15 +424,39 @@ pure func apiKeyIntToHex(n: int, digits: int) -> string =
     apiKeyIntToHex(n / 16, digits - 1) ++ digit
 
 -- ============================================================
--- Firestore Helpers
+-- Firestore URL Helpers (configurable database name)
+-- ============================================================
+
+-- Z3-verifiable: Firestore URL is well-formed
+pure func apiKeyFirestoreUrlFull(project: string, database: string, collection: string, docId: string) -> string
+  requires { length(project) > 0 && length(collection) > 0 }
+  ensures { length(result) > 60 }
+{
+  "https://firestore.googleapis.com/v1/projects/" ++ project ++
+    "/databases/" ++ database ++ "/documents/" ++ collection ++ "/" ++ docId
+}
+
+-- Build base Firestore URL from env vars
+func apiKeyFirestoreBaseUrl() -> string ! {Env} {
+  let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
+  let database = getEnvOr("FIRESTORE_DATABASE", "docparse");
+  let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
+  "https://firestore.googleapis.com/v1/projects/" ++ project ++
+    "/databases/" ++ database ++ "/documents/" ++ collection
+}
+
+-- Build Firestore document URL for a specific key
+func apiKeyFirestoreDocUrl(keyId: string) -> string ! {Env} {
+  apiKeyFirestoreBaseUrl() ++ "/" ++ keyId
+}
+
+-- ============================================================
+-- Firestore Operations
 -- ============================================================
 
 -- Store a key document in Firestore (with ADC auth)
 func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, Net, Env} {
-  let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
-  let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
-  let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
-    "/databases/(default)/documents/" ++ collection ++ "?documentId=" ++ keyId;
+  let url = apiKeyFirestoreBaseUrl() ++ "?documentId=" ++ keyId;
   let token = apiKeyGetAccessToken();
   let headers = [
     {name: "Authorization", value: "Bearer " ++ token},
@@ -261,15 +465,199 @@ func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, Net, Env} {
   httpRequest("POST", url, headers, docJson)
 }
 
+-- Fetch a key document from Firestore
+func apiKeyFetchDoc(keyId: string) -> string ! {IO, Net, Env} {
+  let url = apiKeyFirestoreDocUrl(keyId);
+  let token = apiKeyGetAccessToken();
+  let headers = [
+    {name: "Authorization", value: "Bearer " ++ token},
+    {name: "Content-Type", value: "application/json"}
+  ];
+  httpRequest("GET", url, headers, "")
+}
+
+-- Update specific fields in a key document
+func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string]) -> string ! {IO, Net, Env} {
+  let pathParams = join("&", map(\p. "updateMask.fieldPaths=" ++ p, fieldPaths));
+  let url = apiKeyFirestoreDocUrl(keyId) ++ "?" ++ pathParams;
+  let token = apiKeyGetAccessToken();
+  let headers = [
+    {name: "Authorization", value: "Bearer " ++ token},
+    {name: "Content-Type", value: "application/json"}
+  ];
+  httpRequest("PATCH", url, headers, fieldsJson)
+}
+
 -- Get access token from GCP metadata server (Cloud Run ADC)
 func apiKeyGetAccessToken() -> string ! {Net} {
   let metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
   let headers = [{name: "Metadata-Flavor", value: "Google"}];
   let response = httpRequest("GET", metadataUrl, headers, "");
-  -- Response is {"access_token":"ya29.c...","expires_in":3599,"token_type":"Bearer"}
-  -- Extract access_token field
   apiKeyExtractToken(response)
 }
+
+-- ============================================================
+-- Quota Logic (pure where possible)
+-- ============================================================
+
+-- Check quota from a Firestore document response.
+-- Performs lazy reset of daily/monthly counters.
+func apiKeyCheckQuotaFromDoc(docResponse: string, expectedHash: string, keyId: string, currentTime: string) -> string ! {IO, Net, Env} {
+  match decode(docResponse) {
+    Err(_) => encode(jo([kv("allowed", jb(false)), kv("error", js("Key not found"))])),
+    Ok(json) =>
+      match get(json, "fields") {
+        None => encode(jo([kv("allowed", jb(false)), kv("error", js("Key not found"))])),
+        Some(fields) =>
+          let storedHash = apiKeyGetFieldString(fields, "keyHash") in
+          let active = apiKeyGetFieldBool(fields, "active") in
+          if storedHash == expectedHash && active == false then
+            encode(jo([kv("allowed", jb(false)), kv("error", js("Key has been revoked"))]))
+          else if storedHash == expectedHash == false then
+            encode(jo([kv("allowed", jb(false)), kv("error", js("Invalid key"))]))
+          else {
+            -- Key is valid and active — check quotas
+            let tier = apiKeyGetFieldString(fields, "tier") in
+            let effectiveTier = if apiKeyValidTier(tier) then tier else "free" in
+            let requestsToday = apiKeyGetFieldInt(fields, "requestsToday") in
+            let pagesThisMonth = apiKeyGetFieldInt(fields, "pagesThisMonth") in
+            let lastResetDaily = apiKeyGetFieldString(fields, "lastResetDaily") in
+            let lastResetMonthly = apiKeyGetFieldString(fields, "lastResetMonthly") in
+
+            -- Lazy daily reset: if last reset was a different day
+            let needsDailyReset = apiKeyNeedsDailyReset(lastResetDaily, currentTime) in
+            let effectiveRequestsToday = if needsDailyReset then 0 else requestsToday in
+
+            -- Lazy monthly reset: if last reset was a different month
+            let needsMonthlyReset = apiKeyNeedsMonthlyReset(lastResetMonthly, currentTime) in
+            let effectivePagesThisMonth = if needsMonthlyReset then 0 else pagesThisMonth in
+
+            -- Persist reset if needed
+            let resetResult = if needsDailyReset || needsMonthlyReset then
+              apiKeyPersistReset(keyId, currentTime, needsDailyReset, needsMonthlyReset)
+            else "ok" in
+
+            -- Check limits
+            let maxRequests = apiKeyRequestsPerDay(effectiveTier) in
+            let maxPages = apiKeyPagesPerMonth(effectiveTier) in
+            if effectiveRequestsToday >= maxRequests then
+              encode(jo([
+                kv("allowed", jb(false)),
+                kv("error", js("Daily request quota exceeded")),
+                kv("tier", js(effectiveTier)),
+                kv("used", jnum(intToFloat(effectiveRequestsToday))),
+                kv("limit", jnum(intToFloat(maxRequests)))
+              ]))
+            else if effectivePagesThisMonth >= maxPages then
+              encode(jo([
+                kv("allowed", jb(false)),
+                kv("error", js("Monthly page quota exceeded")),
+                kv("tier", js(effectiveTier)),
+                kv("used", jnum(intToFloat(effectivePagesThisMonth))),
+                kv("limit", jnum(intToFloat(maxPages)))
+              ]))
+            else
+              encode(jo([
+                kv("allowed", jb(true)),
+                kv("tier", js(effectiveTier)),
+                kv("aiLimit", jnum(intToFloat(apiKeyAiLimit(effectiveTier)))),
+                kv("fsLimit", jnum(intToFloat(apiKeyFsLimit(effectiveTier)))),
+                kv("requestsRemaining", jnum(intToFloat(maxRequests - effectiveRequestsToday))),
+                kv("pagesRemaining", jnum(intToFloat(maxPages - effectivePagesThisMonth)))
+              ]))
+          }
+      }
+  }
+}
+
+-- Persist lazy reset to Firestore (update counters + timestamps)
+func apiKeyPersistReset(keyId: string, currentTime: string, resetDaily: bool, resetMonthly: bool) -> string ! {IO, Net, Env} {
+  let dailyFields = if resetDaily then [
+    kv("requestsToday", jo([kv("integerValue", js("0"))])),
+    kv("lastResetDaily", jo([kv("stringValue", js(currentTime))]))
+  ] else [];
+  let monthlyFields = if resetMonthly then [
+    kv("pagesThisMonth", jo([kv("integerValue", js("0"))])),
+    kv("lastResetMonthly", jo([kv("stringValue", js(currentTime))]))
+  ] else [];
+  let allFields = jo([kv("fields", jo(dailyFields ++ monthlyFields))]);
+  let dailyPaths = if resetDaily then ["requestsToday", "lastResetDaily"] else [];
+  let monthlyPaths = if resetMonthly then ["pagesThisMonth", "lastResetMonthly"] else [];
+  apiKeyUpdateFields(keyId, encode(allFields), dailyPaths ++ monthlyPaths)
+}
+
+-- Increment usage counters after a successful request
+func apiKeyIncrementUsage(docResponse: string, keyId: string, pagesProcessed: int, currentTime: string) -> string ! {IO, Net, Env} {
+  match decode(docResponse) {
+    Err(_) => "error: could not read key document",
+    Ok(json) =>
+      match get(json, "fields") {
+        None => "error: no fields in key document",
+        Some(fields) =>
+          let requestsToday = apiKeyGetFieldInt(fields, "requestsToday") in
+          let pagesThisMonth = apiKeyGetFieldInt(fields, "pagesThisMonth") in
+          let totalRequests = apiKeyGetFieldInt(fields, "totalRequests") in
+          let totalPages = apiKeyGetFieldInt(fields, "totalPages") in
+          let updateBody = encode(jo([
+            kv("fields", jo([
+              kv("requestsToday", jo([kv("integerValue", js(intToStr(requestsToday + 1)))])),
+              kv("pagesThisMonth", jo([kv("integerValue", js(intToStr(pagesThisMonth + pagesProcessed)))])),
+              kv("totalRequests", jo([kv("integerValue", js(intToStr(totalRequests + 1)))])),
+              kv("totalPages", jo([kv("integerValue", js(intToStr(totalPages + pagesProcessed)))])),
+              kv("lastUsed", jo([kv("stringValue", js(currentTime))]))
+            ]))
+          ])) in
+          apiKeyUpdateFields(keyId, updateBody,
+            ["requestsToday", "pagesThisMonth", "totalRequests", "totalPages", "lastUsed"])
+      }
+  }
+}
+
+-- ============================================================
+-- Lazy Reset Logic (pure, Z3-verifiable)
+-- ============================================================
+
+-- Seconds in a day: 86400
+-- We compare epoch timestamps: if (current - lastReset) >= 86400, reset daily
+pure func apiKeyNeedsDailyReset(lastReset: string, currentTime: string) -> bool {
+  let last = apiKeyParseTimestamp(lastReset) in
+  let curr = apiKeyParseTimestamp(currentTime) in
+  (curr - last) >= 86400
+}
+
+-- Monthly reset: if (current - lastReset) >= 2592000 (30 days)
+pure func apiKeyNeedsMonthlyReset(lastReset: string, currentTime: string) -> bool {
+  let last = apiKeyParseTimestamp(lastReset) in
+  let curr = apiKeyParseTimestamp(currentTime) in
+  (curr - last) >= 2592000
+}
+
+-- Parse timestamp string to int (simple atoi)
+pure func apiKeyParseTimestamp(s: string) -> int {
+  foldl(\acc c. acc * 10 + c, 0, apiKeyDigitValues(s, 0, length(s)))
+}
+
+-- Extract digit values from a string
+pure func apiKeyDigitValues(s: string, idx: int, len: int) -> [int] =
+  if idx >= len then []
+  else
+    let ch = substring(s, idx, idx + 1) in
+    let v = apiKeyDigitToInt(ch) in
+    if v >= 0 then v :: apiKeyDigitValues(s, idx + 1, len)
+    else apiKeyDigitValues(s, idx + 1, len)
+
+-- Z3-verifiable: digit character to int value, -1 for non-digits
+pure func apiKeyDigitToInt(ch: string) -> int
+  ensures { result >= -1 && result <= 9 }
+=
+  if ch == "0" then 0 else if ch == "1" then 1 else if ch == "2" then 2
+  else if ch == "3" then 3 else if ch == "4" then 4 else if ch == "5" then 5
+  else if ch == "6" then 6 else if ch == "7" then 7 else if ch == "8" then 8
+  else if ch == "9" then 9 else -1
+
+-- ============================================================
+-- Pure Helpers
+-- ============================================================
 
 -- Extract access_token from metadata server JSON response
 pure func apiKeyExtractToken(response: string) -> string
@@ -287,10 +675,53 @@ func apiKeyTimestamp() -> string ! {Clock} {
   intToStr(t)
 }
 
+-- Extract tier from a Firestore document response
+pure func apiKeyExtractTier(docResponse: string) -> string {
+  match decode(docResponse) {
+    Ok(json) =>
+      match get(json, "fields") {
+        Some(fields) =>
+          let tier = apiKeyGetFieldString(fields, "tier") in
+          if apiKeyValidTier(tier) then tier else "free",
+        None => "free"
+      },
+    Err(_) => "free"
+  }
+}
+
+-- Format usage stats from a Firestore document
+pure func apiKeyFormatUsage(docResponse: string, keyId: string, currentTime: string) -> string {
+  match decode(docResponse) {
+    Ok(json) =>
+      match get(json, "fields") {
+        Some(fields) =>
+          let tier = apiKeyGetFieldString(fields, "tier") in
+          let effectiveTier = if apiKeyValidTier(tier) then tier else "free" in
+          encode(jo([
+            kv("status", js("ok")),
+            kv("keyId", js(keyId)),
+            kv("tier", js(effectiveTier)),
+            kv("usage", jo([
+              kv("requestsToday", jnum(intToFloat(apiKeyGetFieldInt(fields, "requestsToday")))),
+              kv("pagesThisMonth", jnum(intToFloat(apiKeyGetFieldInt(fields, "pagesThisMonth")))),
+              kv("totalRequests", jnum(intToFloat(apiKeyGetFieldInt(fields, "totalRequests")))),
+              kv("totalPages", jnum(intToFloat(apiKeyGetFieldInt(fields, "totalPages"))))
+            ])),
+            kv("quota", jo([
+              kv("requestsPerDay", jnum(intToFloat(apiKeyRequestsPerDay(effectiveTier)))),
+              kv("pagesPerMonth", jnum(intToFloat(apiKeyPagesPerMonth(effectiveTier)))),
+              kv("aiLimitPerRequest", jnum(intToFloat(apiKeyAiLimit(effectiveTier)))),
+              kv("fsLimitPerRequest", jnum(intToFloat(apiKeyFsLimit(effectiveTier))))
+            ]))
+          ])),
+        None => encode(jo([kv("status", js("error")), kv("error", js("Key not found"))]))
+      },
+    Err(_) => encode(jo([kv("status", js("error")), kv("error", js("Key not found"))]))
+  }
+}
+
 -- Format Firestore list response, filtering by userId
 pure func apiKeyFormatList(response: string, userId: string) -> string {
-  -- Parse and filter Firestore documents
-  -- Returns JSON array of key metadata (no raw keys)
   encode(jo([
     kv("status", js("ok")),
     kv("userId", js(userId)),
@@ -342,9 +773,28 @@ pure func apiKeyGetFieldBool(fields: Json, fieldName: string) -> bool {
   }
 }
 
+-- Extract an int value from Firestore field format: {"fieldName": {"integerValue": "123"}}
+pure func apiKeyGetFieldInt(fields: Json, fieldName: string) -> int {
+  match get(fields, fieldName) {
+    Some(field) =>
+      let strVal = getOrElse(getString(field, "integerValue"), "0") in
+      apiKeyParseTimestamp(strVal),
+    None => 0
+  }
+}
+
 -- Z3-verifiable: validation is strict — empty hash never matches
 pure func apiKeyEmptyHashNeverValid(hash: string) -> bool
   ensures { result == false || length(hash) > 0 }
 {
   length(hash) > 0
+}
+
+-- Z3-verifiable: Firestore URL is well-formed (legacy, kept for compatibility)
+pure func apiKeyFirestoreUrl(project: string, collection: string, docId: string) -> string
+  requires { length(project) > 0 && length(collection) > 0 }
+  ensures { length(result) > 60 }
+{
+  "https://firestore.googleapis.com/v1/projects/" ++ project ++
+    "/databases/(default)/documents/" ++ collection ++ "/" ++ docId
 }

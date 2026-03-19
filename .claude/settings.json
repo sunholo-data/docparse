@@ -9,7 +9,9 @@
       "Bash(uv run*)",
       "Bash(bash benchmarks/*)",
       "WebFetch(domain:sunholo.com)",
-      "Bash(./bin/docparse --prove)"
+      "Bash(./bin/docparse --prove)",
+      "Bash(ailang --version)",
+      "Bash(ailang serve-api:*)"
     ]
   }
 }

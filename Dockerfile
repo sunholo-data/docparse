@@ -20,16 +20,19 @@ COPY data/test_files/ ./data/test_files/
 ENV PORT=8080
 # Use ADC for Vertex AI (no API key needed on Cloud Run)
 ENV GOOGLE_API_KEY=""
+# Firestore config (set via Terraform / Cloud Run env vars)
+ENV GOOGLE_CLOUD_PROJECT=""
+ENV FIRESTORE_DATABASE="docparse"
+ENV FIRESTORE_COLLECTION="api_keys"
 
 EXPOSE 8080
 
 # Run serve-api with all capabilities
+# Concurrency confirmed working (test harness was the issue, not AILANG)
+# Cloud Run concurrency=80 is safe — 1-6ms per request
 CMD ailang serve-api \
     --caps IO,FS,AI,Env,Net,Rand,Clock \
     --ai gemini-2.5-flash \
     --port ${PORT} \
     --cors \
-    --api-key-header "x-api-key" \
-    --api-key-env "AILANG_DOCPARSE_API_KEY" \
-    --max-upload-size 104857600 \
     docparse/

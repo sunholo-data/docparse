@@ -1,0 +1,25 @@
+# Cloud Build — Deploy Firestore security rules for DocParse
+#
+# Triggered on push to main when firestore.rules or firebase.json changes.
+# Runs in ailang-multivac-deploy, deploys to _TARGET_PROJECT.
+
+substitutions:
+  _TARGET_PROJECT: ailang-multivac-dev
+
+steps:
+  - name: gcr.io/cloud-builders/npm
+    args: ['install', '-g', 'firebase-tools']
+
+  - name: gcr.io/cloud-builders/npm
+    entrypoint: firebase
+    args:
+      - deploy
+      - --only
+      - firestore:rules
+      - --project
+      - ${_TARGET_PROJECT}
+      - --non-interactive
+      - --force
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -17,9 +17,10 @@ ERRORS=""
 
 start_server() {
   echo "Starting serve-api on port $PORT..."
-  ailang serve-api --caps IO,FS,Env --ai-stub --port "$PORT" docparse/ 2>/dev/null &
+  ailang serve-api --caps IO,FS,Env,Net,Rand,Clock --ai-stub --port "$PORT" docparse/ > /tmp/docparse_test_server.log 2>&1 &
   SERVER_PID=$!
-  sleep 5
+  # 31 modules with Net,Rand,Clock caps need ~15s to load
+  sleep 15
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "FATAL: Server failed to start"
     exit 1
@@ -182,6 +183,52 @@ echo ""
 echo "=== PDF (AI required — verify graceful error) ==="
 result=$(parse_file "data/test_files/simple_text.pdf" 2>&1)
 check "PDF requires AI capability" "$result" "effect"
+
+echo ""
+echo "=== API Key Management (endpoints respond, Firestore errors expected locally) ==="
+
+# Key endpoints need Firestore/metadata server — verify they respond (not hang)
+# On Cloud Run these return actual results; locally they return JSON errors
+result=$(curl -s --max-time 5 -X POST "http://localhost:$PORT/api/v1/keys/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{"args":["test-user-123","my-test-key"]}')
+check "POST /api/v1/keys/generate (responds)" "$result" 'api_keys'
+
+result=$(curl -s --max-time 5 -X POST "http://localhost:$PORT/api/v1/keys/list" \
+  -H 'Content-Type: application/json' \
+  -d '{"args":["test-user-123"]}')
+check "POST /api/v1/keys/list (responds)" "$result" 'api_keys'
+
+result=$(curl -s --max-time 5 -X POST "http://localhost:$PORT/api/v1/keys/revoke" \
+  -H 'Content-Type: application/json' \
+  -d '{"args":["abc123456789","test-user-123"]}')
+check "POST /api/v1/keys/revoke (responds)" "$result" 'api_keys'
+
+result=$(curl -s --max-time 5 -X POST "http://localhost:$PORT/api/v1/keys/rotate" \
+  -H 'Content-Type: application/json' \
+  -d '{"args":["abc123456789","test-user-123"]}')
+check "POST /api/v1/keys/rotate (responds)" "$result" 'api_keys'
+
+result=$(curl -s --max-time 5 -X POST "http://localhost:$PORT/api/v1/keys/usage" \
+  -H 'Content-Type: application/json' \
+  -d '{"args":["abc123456789","test-user-123"]}')
+check "POST /api/v1/keys/usage (responds)" "$result" 'api_keys'
+
+echo ""
+echo "=== API Meta ==="
+
+# OpenAPI spec should include key management endpoints
+curl -s --max-time 5 "http://localhost:$PORT/api/_meta/openapi.json" > /tmp/docparse_openapi.json
+if grep -q 'keys/generate' /tmp/docparse_openapi.json 2>/dev/null; then
+  printf "  ✓ %-40s\n" "OpenAPI has keys/generate"; PASS=$((PASS + 1))
+else
+  printf "  ✗ %-40s\n" "OpenAPI has keys/generate"; FAIL=$((FAIL + 1)); ERRORS="$ERRORS\n  - OpenAPI has keys/generate"
+fi
+if grep -q 'keys/rotate' /tmp/docparse_openapi.json 2>/dev/null; then
+  printf "  ✓ %-40s\n" "OpenAPI has keys/rotate"; PASS=$((PASS + 1))
+else
+  printf "  ✗ %-40s\n" "OpenAPI has keys/rotate"; FAIL=$((FAIL + 1)); ERRORS="$ERRORS\n  - OpenAPI has keys/rotate"
+fi
 
 echo ""
 echo "============================================"

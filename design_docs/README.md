@@ -6,12 +6,14 @@
 design_docs/
 ├── implemented/              # Features that have been built
 │   ├── v0_1_0/              # Initial release (March 2026)
-│   └── v0_3_0/              # Parser coverage & format expansion
+│   ├── v0_3_0/              # Parser coverage & format expansion
+│   ├── v0_6_0/              # Document generation (8 formats)
+│   └── v0_7_0/              # API server & Unstructured compat
 ├── planned/                  # Future features and designs
 │   ├── v0_2_0/              # PDF pipeline improvements
 │   ├── v0_4_0/              # Go binary compilation
 │   ├── v0_5_0/              # Ecosystem & competitor benchmarks
-│   └── v0_6_0/              # Document generation (Block ADT → files)
+│   └── v0_8_0/              # API keys & Cloud deployment
 ├── archive/                  # Obsolete/superseded designs
 └── README.md                 # This file
 ```
@@ -83,12 +85,30 @@ Old designs that have been superseded or abandoned.
 - [Design Doc](planned/v0_5_0/v0_5_0_ecosystem.md)
 - [External Benchmarks](planned/v0_5_0/external_benchmarks.md)
 
-### v0.6.0 — Document Generation `UNBLOCKED`
-- Block ADT → file output (reverse of parsing)
-- 7 phases: Markdown → HTML → DOCX → PPTX → XLSX → ODF → AI-assisted
-- AILANG blockers resolved: `std/zip.createArchive` + `std/xml.serialize` now shipped
-- Phase 1 (Markdown roundtrip) and Phase 2 (HTML generation) ready to start
-- [Design Doc](planned/v0_6_0/v0_6_0_document_generation.md)
+### v0.6.0 — Document Generation `DONE`
+- Block ADT → file output for all 8 formats (HTML, DOCX, PPTX, XLSX, ODT, ODP, ODS, Markdown)
+- AI-assisted generation: `--generate output.docx --prompt "Q1 sales report"`
+- Cross-format conversion via `--convert` flag
+- All roundtrips verified, generated files recognized by Office apps
+- [Design Doc](implemented/v0_6_0/v0_6_0_document_generation.md)
+- [Features](implemented/v0_6_0/features.md)
+- [Verification Loop](implemented/v0_6_0/verification_loop.md)
+
+### v0.7.0 — API Server & Unstructured Compatibility `DONE`
+- REST API via `ailang serve-api` with custom `@route` annotations
+- Unstructured API drop-in compatibility (`POST /general/v0/general`)
+- Auto-generated OpenAPI spec + Swagger UI
+- 25 smoke tests, all passing
+- Concurrency confirmed working (Cloud Run `concurrency=80` safe)
+- [Design Doc](implemented/v0_7_0/v0_7_0_api_server.md)
+
+### v0.8.0 — Per-User API Keys & Cloud Deployment `IN PROGRESS`
+- Self-service API key management via static website dashboard
+- Two-layer enforcement: AILANG capability budgets (per-request) + Firestore quotas (cumulative)
+- Free/Pro/Enterprise tiers with upgrade path
+- Terraform in ailang-multivac: Cloud Run, Firestore, Firebase Auth, IAM
+- CI/CD trigger for docparse repo pushes
+- [Design Doc](planned/v0_8_0/v0_8_0_api_keys_cloud_deployment.md)
 
 ## Guidelines
 
