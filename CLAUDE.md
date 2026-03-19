@@ -58,7 +58,7 @@ ailang serve-api --caps IO,FS,Env,AI,Net,Rand,Clock \
 #   GET  /api/v1/formats             — supported formats
 #   POST /api/v1/parse               — parse document (filepath)
 #   POST /general/v0/general         — Unstructured API compat
-#   POST /api/v1/keys/generate       — generate API key (blocked: _json_decode bug)
+#   POST /api/v1/keys/generate       — generate API key
 #   POST /api/v1/keys/list           — list user's keys
 #   POST /api/v1/keys/revoke         — revoke a key
 #   POST /api/v1/keys/rotate         — rotate a key
