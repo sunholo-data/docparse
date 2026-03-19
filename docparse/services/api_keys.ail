@@ -422,7 +422,10 @@ func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, Net, Env} {
     {name: "Authorization", value: "Bearer " ++ token},
     {name: "Content-Type", value: "application/json"}
   ];
-  httpRequest("POST", url, headers, docJson)
+  match httpRequest("POST", url, headers, docJson) {
+    Ok(body) => body,
+    Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+  }
 }
 
 -- Fetch a key document from Firestore
@@ -433,7 +436,10 @@ func apiKeyFetchDoc(keyId: string) -> string ! {IO, Net, Env} {
     {name: "Authorization", value: "Bearer " ++ token},
     {name: "Content-Type", value: "application/json"}
   ];
-  httpRequest("GET", url, headers, "")
+  match httpRequest("GET", url, headers, "") {
+    Ok(body) => body,
+    Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+  }
 }
 
 -- Update specific fields in a key document
@@ -445,14 +451,20 @@ func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string])
     {name: "Authorization", value: "Bearer " ++ token},
     {name: "Content-Type", value: "application/json"}
   ];
-  httpRequest("PATCH", url, headers, fieldsJson)
+  match httpRequest("PATCH", url, headers, fieldsJson) {
+    Ok(body) => body,
+    Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+  }
 }
 
 -- Get access token from GCP metadata server (Cloud Run ADC)
 func apiKeyGetAccessToken() -> string ! {Net} {
   let metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
   let headers = [{name: "Metadata-Flavor", value: "Google"}];
-  let response = httpRequest("GET", metadataUrl, headers, "");
+  let response = match httpRequest("GET", metadataUrl, headers, "") {
+    Ok(body) => body,
+    Err(_) => ""
+  };
   apiKeyExtractToken(response)
 }
 
