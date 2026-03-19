@@ -770,11 +770,28 @@ Break-even: ~3 Pro users cover the infrastructure.
 - [x] Type-check — 31 modules, all pass
 - [x] Concurrency confirmed working (test harness was the issue)
 
+### Deployed (2026-03-19)
+- [x] Terraform in ailang-multivac: Cloud Run, Firestore, SA, IAM, CI/CD triggers
+- [x] Cloud Run: https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app
+- [x] Firestore DB: `docparse` (dedicated)
+- [x] Service account: `ailang-dev-docparse@ailang-multivac-dev.iam.gserviceaccount.com`
+- [x] CI/CD: `docparse-dev` trigger on push to main, `docparse-firestore-rules` for rules
+- [x] All 13 parse formats verified working on Cloud Run
+- [x] Health, formats, OpenAPI, Swagger UI — all working
+- [x] Unstructured compat endpoint — working
+- [x] Cold start: ~20s (31 modules), warm: 0ms health, 2-10ms parse
+
+### Blocked
+- [ ] Key management endpoints fail with `_json_decode: expected string, got *eval.TaggedValue`
+  - All api_keys.ail functions fail, even simple single-arg ones
+  - Other modules (api_server.ail) work fine with identical arg formats
+  - Bug reported to AILANG (msg_20260319_154107_80a588f1)
+  - SHA-256, effects, JSON encoding all work in isolation — issue is module-specific
+
 ### Remaining
-- [ ] Terraform in ailang-multivac (Cloud Run, Firestore, SA, IAM)
+- [ ] Fix key management endpoint bug (blocked on AILANG)
 - [ ] Website dashboard (`docs/dashboard.html`) with Firebase Auth
-- [ ] Deploy to Cloud Run and smoke test end-to-end
-- [ ] Production hardening (monitoring, alerts, rate limiting)
+- [ ] Production hardening (monitoring, alerts, min_instances=1, rate limiting)
 
 ## Dependencies
 

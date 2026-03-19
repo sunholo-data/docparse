@@ -40,19 +40,31 @@ ailang run --entry main --caps IO,FS,Env,AI --ai gemini-2.5-flash \
 ./bin/docparse --prove       # Z3 contract verification
 bash benchmarks/quick_check.sh    # Quick smoke test (~15s)
 bash .claude/skills/verify-docs/scripts/verify_only.sh  # Verify generated files
-bash tests/test_serve_api.sh      # API server smoke test (25 tests)
+bash tests/test_serve_api.sh      # API server smoke test (32 tests)
 
-# API Server
+# API Server (local)
 ailang serve-api --caps IO,FS,Env,AI,Net,Rand,Clock \
   --ai gemini-2.5-flash --port 8080 docparse/
+
+# API Server (Cloud Run — dev)
+# URL: https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app
+# Cold start: ~20s (31 modules), warm: 0-10ms
+# CI/CD: pushes to main auto-build via Cloud Build (docparse-dev trigger)
+# Firestore: docparse DB in ailang-multivac-dev
+# SA: ailang-dev-docparse@ailang-multivac-dev.iam.gserviceaccount.com
 
 # API endpoints:
 #   GET  /api/v1/health              — health check
 #   GET  /api/v1/formats             — supported formats
 #   POST /api/v1/parse               — parse document (filepath)
 #   POST /general/v0/general         — Unstructured API compat
-#   POST /api/v1/keys/generate       — generate API key
+#   POST /api/v1/keys/generate       — generate API key (blocked: _json_decode bug)
+#   POST /api/v1/keys/list           — list user's keys
+#   POST /api/v1/keys/revoke         — revoke a key
+#   POST /api/v1/keys/rotate         — rotate a key
+#   POST /api/v1/keys/usage          — usage stats
 #   GET  /api/_meta/docs             — Swagger UI
+#   GET  /api/_meta/openapi.json     — OpenAPI 3.1.0 spec (156 paths)
 
 # Direct ailang invocation (from repo root)
 ailang run --entry main --caps IO,FS,Env docparse/main.ail data/test_files/sample.docx
