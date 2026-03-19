@@ -2,6 +2,7 @@ module docparse/services/xml_helpers
 
 import std/string (length, split, join, contains)
 import std/list (map, foldl)
+import std/xml (escapeXml as stdEscapeXml, xmlElement, xmlText, serialize)
 
 -- XML Helper utilities for document generation.
 -- Provides XML escaping and common template builders for Office XML formats.
@@ -10,22 +11,11 @@ import std/list (map, foldl)
 -- passed to std/zip.createArchive for packaging into Office documents.
 
 -- Escape special XML characters in text content.
--- Handles the 5 predefined XML entities: & < > " '
--- IMPORTANT: & must be replaced first to avoid double-escaping.
+-- Delegates to std/xml.escapeXml (Go builtin — single pass, handles & < > ").
 export pure func xmlEscape(text: string) -> string
   ensures { length(result) >= length(text) }
-{
-  let parts1 = split(text, "&");
-  let escaped1 = join("&amp;", parts1);
-  let parts2 = split(escaped1, "<");
-  let escaped2 = join("&lt;", parts2);
-  let parts3 = split(escaped2, ">");
-  let escaped3 = join("&gt;", parts3);
-  let parts4 = split(escaped3, "\"");
-  let escaped4 = join("&quot;", parts4);
-  let parts5 = split(escaped4, "'");
-  join("&apos;", parts5)
-}
+=
+  stdEscapeXml(text)
 
 -- Escape text for XML attribute values (same escaping as content)
 export pure func xmlAttrEscape(text: string) -> string =
@@ -90,8 +80,11 @@ export pure func docxRootRels() -> string {
 }
 
 -- Wrap content in a Word paragraph run: <w:r><w:t>text</w:t></w:r>
+-- Uses tree API: xmlText auto-escapes, serialize renders to string.
 export pure func docxRun(text: string) -> string =
-  "<w:r><w:t xml:space=\"preserve\">" ++ xmlEscape(text) ++ "</w:t></w:r>"
+  serialize(xmlElement("w:r", [], [
+    xmlElement("w:t", [{name: "xml:space", value: "preserve"}], [xmlText(text)])
+  ]))
 
 -- Wrap a run in a paragraph: <w:p>...</w:p>
 export pure func docxParagraph(content: string) -> string =
@@ -100,4 +93,7 @@ export pure func docxParagraph(content: string) -> string =
 -- Build a styled paragraph (e.g., heading)
 export pure func docxStyledParagraph(style: string, text: string) -> string =
   "<w:p><w:pPr><w:pStyle w:val=\"" ++ xmlAttrEscape(style) ++ "\"/></w:pPr>" ++ docxRun(text) ++ "</w:p>"
+
+-- Tree API: generators can import std/xml (xmlElement, xmlText, serialize) directly
+-- for tree-based XML construction. xmlText auto-escapes on serialize.
 
