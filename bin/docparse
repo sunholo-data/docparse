@@ -37,6 +37,7 @@ MODULES=(
   docparse/services/eval.ail
   docparse/services/unstructured_compat.ail
   docparse/services/api_server.ail
+  docparse/services/api_keys.ail
   docparse/main.ail
 )
 

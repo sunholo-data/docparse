@@ -80,7 +80,7 @@ deploy() {
     --min-instances=0 \
     --max-instances=10 \
     --timeout=300s \
-    --concurrency=1 \
+    --concurrency=80 \
     --set-env-vars="GOOGLE_API_KEY=,GOOGLE_CLOUD_PROJECT=${PROJECT}"
 
   echo ""

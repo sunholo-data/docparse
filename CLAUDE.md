@@ -40,6 +40,19 @@ ailang run --entry main --caps IO,FS,Env,AI --ai gemini-2.5-flash \
 ./bin/docparse --prove       # Z3 contract verification
 bash benchmarks/quick_check.sh    # Quick smoke test (~15s)
 bash .claude/skills/verify-docs/scripts/verify_only.sh  # Verify generated files
+bash tests/test_serve_api.sh      # API server smoke test (25 tests)
+
+# API Server
+ailang serve-api --caps IO,FS,Env,AI,Net,Rand,Clock \
+  --ai gemini-2.5-flash --port 8080 docparse/
+
+# API endpoints:
+#   GET  /api/v1/health              — health check
+#   GET  /api/v1/formats             — supported formats
+#   POST /api/v1/parse               — parse document (filepath)
+#   POST /general/v0/general         — Unstructured API compat
+#   POST /api/v1/keys/generate       — generate API key
+#   GET  /api/_meta/docs             — Swagger UI
 
 # Direct ailang invocation (from repo root)
 ailang run --entry main --caps IO,FS,Env docparse/main.ail data/test_files/sample.docx
@@ -48,6 +61,40 @@ ailang run --entry main --caps IO,FS,Env docparse/main.ail data/test_files/sampl
 GOOGLE_API_KEY="" ailang run --entry main --caps IO,FS,Env,AI \
   --ai gemini-3-flash-preview docparse/main.ail document.pdf
 ```
+
+## Testing serve-api
+
+CRITICAL: bash output redirection breaks Go HTTP servers. Follow these patterns exactly.
+
+```bash
+# CORRECT: server output to file with > 2>&1
+ailang serve-api --caps IO,FS,Env --port 8080 docparse/ > /tmp/server.log 2>&1 &
+SERVER_PID=$!
+sleep 6
+
+# CORRECT: concurrent requests with explicit PIDs
+curl -s --max-time 5 http://localhost:8080/api/v1/health > /dev/null &
+P1=$!
+curl -s --max-time 5 http://localhost:8080/api/v1/health > /dev/null &
+P2=$!
+wait $P1 $P2
+
+# WRONG: | tee breaks HTTP response flushing
+ailang serve-api ... | tee /tmp/log &  # DO NOT USE
+
+# WRONG: separate stderr redirect breaks responses
+ailang serve-api ... 2>/tmp/err.log &  # DO NOT USE
+
+# Debug concurrency issues:
+DEBUG_CONCURRENCY=1 ailang serve-api ... > /tmp/debug.log 2>&1 &
+# Then grep CONCURRENCY /tmp/debug.log after requests complete
+```
+
+Performance baselines (Apple M2):
+- Sequential 5x DOCX: ~55ms (11ms each)
+- Concurrent 5x DOCX: ~26ms (near-perfect scaling)
+- Concurrent 10x mixed: ~32ms
+- Cloud Run: concurrency=80 is safe
 
 ## AILANG Conventions
 

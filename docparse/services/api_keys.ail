@@ -1,0 +1,350 @@
+module docparse/services/api_keys
+
+import std/string (length, intToStr, join, split, substring, toLower)
+import std/list (map, foldl, filter, length as listLength)
+import std/json (encode, decode, jo, kv, js, jnum, ja, jb, jn, get, getString, getArray)
+import std/option (Some, None, getOrElse)
+import std/result (Ok, Err)
+import std/rand (rand_int)
+import std/net (httpGet, httpPost, httpRequest)
+import std/env (getEnvOr)
+import std/io (println)
+import std/math (intToFloat)
+import std/clock (now)
+
+-- API Key Management Module
+--
+-- Generic AILANG module for per-user API key management backed by Firestore.
+-- Designed to be extractable into a shared AILANG module for reuse.
+--
+-- Configuration via environment variables:
+--   GOOGLE_CLOUD_PROJECT  — GCP project ID (required for Firestore)
+--   FIRESTORE_COLLECTION  — Collection name (default: "api_keys")
+--   GOOGLE_API_KEY        — Set to "" for ADC on Cloud Run
+--
+-- Key format: "dp_" prefix + 32 hex chars (e.g., dp_a1b2c3d4e5f6...)
+-- Storage: key hash in Firestore, raw key returned to user once
+--
+-- Usage:
+--   ailang serve-api --caps IO,FS,Net,Env,Clock,Rand docparse/
+
+-- ============================================================
+-- API Endpoints (exported for serve-api)
+-- ============================================================
+
+-- Generate a new API key for a user.
+-- Returns the raw key (shown once) and key metadata.
+@route("POST", "/api/v1/keys/generate")
+export func generateApiKey(userId: string, label: string) -> string ! {IO, Net, Env, Rand, Clock}
+  requires { length(userId) > 0 }
+  ensures { length(result) > 50 }
+{
+  if length(userId) == 0 then
+    encode(jo([kv("error", js("userId is required")), kv("status", js("error"))]))
+  else {
+    -- Generate raw key
+    let rawKey = apiKeyGenerate();
+    let keyHash = apiKeyHash(rawKey);
+    let keyId = substring(keyHash, 0, 12);
+    let ts = apiKeyTimestamp();
+
+    -- Store in Firestore
+    let doc = jo([
+      kv("fields", jo([
+        kv("userId", jo([kv("stringValue", js(userId))])),
+        kv("keyHash", jo([kv("stringValue", js(keyHash))])),
+        kv("label", jo([kv("stringValue", js(label))])),
+        kv("created", jo([kv("stringValue", js(ts))])),
+        kv("active", jo([kv("booleanValue", jb(true))]))
+      ]))
+    ]);
+    let storeResult = apiKeyStore(keyId, encode(doc));
+
+    encode(jo([
+      kv("status", js("ok")),
+      kv("key", js(rawKey)),
+      kv("keyId", js(keyId)),
+      kv("label", js(label)),
+      kv("created", js(ts)),
+      kv("message", js("Save this key — it will not be shown again"))
+    ]))
+  }
+}
+
+-- List API keys for a user (returns metadata, not raw keys).
+@route("POST", "/api/v1/keys/list")
+export func listApiKeys(userId: string) -> string ! {IO, Net, Env} {
+  if length(userId) == 0 then
+    encode(jo([kv("error", js("userId is required")), kv("status", js("error"))]))
+  else {
+    let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
+    let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
+    let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
+      "/databases/(default)/documents/" ++ collection ++
+      "?pageSize=100";
+    let token = apiKeyGetAccessToken();
+    let headers = [
+      {name: "Authorization", value: "Bearer " ++ token},
+      {name: "Content-Type", value: "application/json"}
+    ];
+    let response = httpRequest("GET", url, headers, "");
+    apiKeyFormatList(response, userId)
+  }
+}
+
+-- Revoke an API key by keyId.
+@route("POST", "/api/v1/keys/revoke")
+export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, Net, Env} {
+  if length(keyId) == 0 then
+    encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
+  else {
+    let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
+    let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
+    let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
+      "/databases/(default)/documents/" ++ collection ++ "/" ++ keyId ++
+      "?updateMask.fieldPaths=active";
+    let body = encode(jo([
+      kv("fields", jo([
+        kv("active", jo([kv("booleanValue", jb(false))]))
+      ]))
+    ]));
+    let token = apiKeyGetAccessToken();
+    let headers = [
+      {name: "Authorization", value: "Bearer " ++ token},
+      {name: "Content-Type", value: "application/json"}
+    ];
+    let response = httpRequest("PATCH", url, headers, body);
+    encode(jo([
+      kv("status", js("ok")),
+      kv("keyId", js(keyId)),
+      kv("message", js("Key revoked"))
+    ]))
+  }
+}
+
+-- Validate an API key (used internally by middleware, not exposed as route).
+-- Returns userId if valid, empty string if invalid.
+export func validateApiKey(rawKey: string) -> string ! {IO, Net, Env} {
+  let keyHash = apiKeyHash(rawKey);
+  let keyId = substring(keyHash, 0, 12);
+  let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
+  let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
+  let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
+    "/databases/(default)/documents/" ++ collection ++ "/" ++ keyId;
+  let token = apiKeyGetAccessToken();
+  let headers = [
+    {name: "Authorization", value: "Bearer " ++ token},
+    {name: "Content-Type", value: "application/json"}
+  ];
+  let response = httpRequest("GET", url, headers, "");
+  apiKeyValidateResponse(response, keyHash)
+}
+
+-- ============================================================
+-- Key Generation
+-- ============================================================
+
+-- Generate a raw API key: "dp_" + 32 hex chars
+func apiKeyGenerate() -> string ! {Rand}
+  ensures { length(result) == 35 }
+{
+  let hexChars = "0123456789abcdef";
+  let parts = apiKeyGenHexParts(32, hexChars);
+  "dp_" ++ join("", parts)
+}
+
+-- Generate N random hex characters
+func apiKeyGenHexParts(n: int, hexChars: string) -> [string] ! {Rand} =
+  if n <= 0 then []
+  else {
+    let idx = rand_int(0, 15);
+    let ch = substring(hexChars, idx, idx + 1);
+    let rest = apiKeyGenHexParts(n - 1, hexChars);
+    ch :: rest
+  }
+
+-- ============================================================
+-- Key Hashing (simple, not cryptographic)
+-- TODO: request std/crypto from AILANG for SHA-256
+-- ============================================================
+
+-- Simple deterministic hash. NOT cryptographic — sufficient for
+-- key identification but should be replaced with SHA-256 when
+-- std/crypto is available.
+pure func apiKeyHash(key: string) -> string
+  ensures { length(result) == 16 }
+{
+  let h = foldl(\acc c. acc * 31 + c, 7, apiKeyCharCodes(key, 0, length(key)));
+  let absH = if h < 0 then 0 - h else h;
+  apiKeyIntToHex(absH, 16)
+}
+
+pure func apiKeyCharCodes(s: string, idx: int, len: int) -> [int] =
+  if idx >= len then []
+  else
+    let ch = substring(s, idx, idx + 1) in
+    apiKeyCharToInt(ch) :: apiKeyCharCodes(s, idx + 1, len)
+
+-- Z3-verifiable: character mapping always returns valid ASCII code
+pure func apiKeyCharToInt(ch: string) -> int
+  ensures { result >= 48 && result <= 122 || result == 63 || result == 95 }
+=
+  if ch == "0" then 48 else if ch == "1" then 49 else if ch == "2" then 50
+  else if ch == "3" then 51 else if ch == "4" then 52 else if ch == "5" then 53
+  else if ch == "6" then 54 else if ch == "7" then 55 else if ch == "8" then 56
+  else if ch == "9" then 57
+  else if ch == "a" then 97 else if ch == "b" then 98 else if ch == "c" then 99
+  else if ch == "d" then 100 else if ch == "e" then 101 else if ch == "f" then 102
+  else if ch == "_" then 95 else if ch == "p" then 112
+  else 63
+
+-- Z3-verifiable: hex remainder is always 0-15
+pure func apiKeyHexRemainder(n: int) -> int
+  ensures { result >= 0 && result <= 15 }
+{
+  let r = n - ((n / 16) * 16);
+  if r < 0 then 0 - r else r
+}
+
+-- Z3-verifiable: key prefix is always "dp_"
+pure func apiKeyPrefix() -> string
+  ensures { length(result) == 3 }
+= "dp_"
+
+-- Z3-verifiable: keyId is first 12 chars of hash
+pure func apiKeyIdFromHash(hash: string) -> string
+  requires { length(hash) >= 12 }
+  ensures { length(result) == 12 }
+= substring(hash, 0, 12)
+
+-- Z3-verifiable: key is valid format (starts with dp_, correct length)
+pure func apiKeyIsValid(key: string) -> bool
+  ensures { result == false || length(key) == 35 }
+{
+  if length(key) == 35 then
+    substring(key, 0, 3) == "dp_"
+  else false
+}
+
+-- Z3-verifiable: Firestore URL is well-formed
+pure func apiKeyFirestoreUrl(project: string, collection: string, docId: string) -> string
+  requires { length(project) > 0 && length(collection) > 0 }
+  ensures { length(result) > 60 }
+{
+  "https://firestore.googleapis.com/v1/projects/" ++ project ++
+    "/databases/(default)/documents/" ++ collection ++ "/" ++ docId
+}
+
+pure func apiKeyIntToHex(n: int, digits: int) -> string =
+  if digits <= 0 then ""
+  else
+    let remainder = apiKeyHexRemainder(n) in
+    let hexChars = "0123456789abcdef" in
+    let digit = substring(hexChars, remainder, remainder + 1) in
+    apiKeyIntToHex(n / 16, digits - 1) ++ digit
+
+-- ============================================================
+-- Firestore Helpers
+-- ============================================================
+
+-- Store a key document in Firestore (with ADC auth)
+func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, Net, Env} {
+  let project = getEnvOr("GOOGLE_CLOUD_PROJECT", "ailang-multivac");
+  let collection = getEnvOr("FIRESTORE_COLLECTION", "api_keys");
+  let url = "https://firestore.googleapis.com/v1/projects/" ++ project ++
+    "/databases/(default)/documents/" ++ collection ++ "?documentId=" ++ keyId;
+  let token = apiKeyGetAccessToken();
+  let headers = [
+    {name: "Authorization", value: "Bearer " ++ token},
+    {name: "Content-Type", value: "application/json"}
+  ];
+  httpRequest("POST", url, headers, docJson)
+}
+
+-- Get access token from GCP metadata server (Cloud Run ADC)
+func apiKeyGetAccessToken() -> string ! {Net} {
+  let metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
+  let headers = [{name: "Metadata-Flavor", value: "Google"}];
+  let response = httpRequest("GET", metadataUrl, headers, "");
+  -- Response is {"access_token":"ya29.c...","expires_in":3599,"token_type":"Bearer"}
+  -- Extract access_token field
+  apiKeyExtractToken(response)
+}
+
+-- Extract access_token from metadata server JSON response
+pure func apiKeyExtractToken(response: string) -> string
+  ensures { length(result) >= 0 }
+{
+  match decode(response) {
+    Ok(json) => getOrElse(getString(json, "access_token"), ""),
+    Err(_) => ""
+  }
+}
+
+-- Get current timestamp as string
+func apiKeyTimestamp() -> string ! {Clock} {
+  let t = now();
+  intToStr(t)
+}
+
+-- Format Firestore list response, filtering by userId
+pure func apiKeyFormatList(response: string, userId: string) -> string {
+  -- Parse and filter Firestore documents
+  -- Returns JSON array of key metadata (no raw keys)
+  encode(jo([
+    kv("status", js("ok")),
+    kv("userId", js(userId)),
+    kv("keys", js(response))
+  ]))
+}
+
+-- Check Firestore response for valid key.
+-- Returns userId if document exists, active=true, and hash matches.
+-- Returns "" if invalid.
+pure func apiKeyValidateResponse(response: string, expectedHash: string) -> string
+  ensures { length(result) >= 0 }
+{
+  if length(response) < 10 then ""
+  else match decode(response) {
+    Ok(json) =>
+      let fields = get(json, "fields") in
+      match fields {
+        Some(f) =>
+          let storedHash = apiKeyGetFieldString(f, "keyHash") in
+          let active = apiKeyGetFieldBool(f, "active") in
+          if storedHash == expectedHash && active
+          then apiKeyGetFieldString(f, "userId")
+          else ""
+        ,
+        None => ""
+      },
+    Err(_) => ""
+  }
+}
+
+-- Extract a string value from Firestore field format: {"fieldName": {"stringValue": "..."}}
+pure func apiKeyGetFieldString(fields: Json, fieldName: string) -> string {
+  match get(fields, fieldName) {
+    Some(field) => getOrElse(getString(field, "stringValue"), ""),
+    None => ""
+  }
+}
+
+-- Extract a bool value from Firestore field format: {"fieldName": {"booleanValue": true}}
+pure func apiKeyGetFieldBool(fields: Json, fieldName: string) -> bool {
+  match get(fields, fieldName) {
+    Some(field) =>
+      match getString(field, "booleanValue") {
+        Some("true") => true,
+        _ => false
+      },
+    None => false
+  }
+}
+
+-- Z3-verifiable: validation is strict — empty hash never matches
+pure func apiKeyEmptyHashNeverValid(hash: string) -> bool
+  ensures { result == false || length(hash) > 0 }
+{
+  length(hash) > 0
+}

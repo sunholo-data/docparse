@@ -4,7 +4,7 @@ import std/json (decode, get, getString, getArray, getInt, getBool, asString, as
 import std/option (Some, None, getOrElse, map as optMap)
 import std/result (Ok, Err)
 import std/string (length, trim, toLower, split, join, contains, intToStr, floatToStr, words as splitWords)
-import std/list (map, flatMap, filter, concat, length as listLength, member, dedup, intersect, union)
+import std/list (map, flatMap, filter, concat, length as listLength, member, dedup, intersect, union, take)
 import std/math (intToFloat)
 import std/fs (readFile)
 import std/io (println)
@@ -253,9 +253,10 @@ pure func evalTokenize(text: string) -> [string] =
   splitWords(toLower(text))
 
 -- Collect unique words from elements.
--- Hash-based dedup/intersect/union are O(n), so no cap needed.
+-- Hash-based dedup is O(n), but AILANG JSON decode + flatMap on 2800+ elements
+-- still OOMs on large docs (Moby Dick 1.4MB JSON). Cap at 10000 words (~40 pages).
 pure func evalCollectWords(elements: [EvalElement]) -> [string] =
-  dedup(flatMap(\el. evalTokenize(el.elText), elements))
+  dedup(take(10000, flatMap(\el. evalTokenize(el.elText), elements)))
 
 -- ================================================================
 -- Jaccard Similarity

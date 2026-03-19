@@ -25,11 +25,11 @@ EXPOSE 8080
 
 # Run serve-api with all capabilities
 CMD ailang serve-api \
-    --caps IO,FS,AI,Env \
+    --caps IO,FS,AI,Env,Net,Rand,Clock \
     --ai gemini-2.5-flash \
     --port ${PORT} \
     --cors \
-    --api-key-header "unstructured-api-key" \
-    --api-key-env "DOCPARSE_API_KEY" \
+    --api-key-header "x-api-key" \
+    --api-key-env "AILANG_DOCPARSE_API_KEY" \
     --max-upload-size 104857600 \
     docparse/
