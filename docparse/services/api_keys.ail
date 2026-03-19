@@ -1,5 +1,6 @@
 module docparse/services/api_keys
 
+import std/fs (readFile, writeFile, fileExists)
 import std/string (length, intToStr, join, split, substring, toLower)
 import std/list (map, foldl, filter, length as listLength)
 import std/json (encode, decode, jo, kv, js, jnum, ja, jb, jn, get, getString, getInt, getArray)
@@ -108,7 +109,7 @@ pure func apiKeyTierQuota(tier: string) -> string {
 -- Returns the raw key (shown once) and key metadata.
 -- New keys default to "free" tier.
 @route("POST", "/api/v1/keys/generate")
-export func generateApiKey(userId: string, label: string) -> string ! {IO, Net, Env, Rand, Clock}
+export func generateApiKey(userId: string, label: string) -> string ! {IO, FS, Net, Env, Rand, Clock}
   requires { length(userId) > 0 }
   ensures { length(result) > 50 }
 {
@@ -168,9 +169,13 @@ export func generateApiKey(userId: string, label: string) -> string ! {IO, Net, 
 
 -- List API keys for a user (returns metadata, not raw keys).
 @route("POST", "/api/v1/keys/list")
-export func listApiKeys(userId: string) -> string ! {IO, Net, Env} {
+export func listApiKeys(userId: string) -> string ! {IO, FS, Net, Env} {
   if length(userId) == 0 then
     encode(jo([kv("error", js("userId is required")), kv("status", js("error"))]))
+  else if apiKeyIsStub() then {
+    -- Stub: list not implemented (would need listDir), return empty
+    encode(jo([kv("status", js("ok")), kv("userId", js(userId)), kv("keys", ja([]))]))
+  }
   else {
     let url = apiKeyFirestoreBaseUrl() ++ "?pageSize=100";
     let token = apiKeyGetAccessToken();
@@ -178,14 +183,17 @@ export func listApiKeys(userId: string) -> string ! {IO, Net, Env} {
       {name: "Authorization", value: "Bearer " ++ token},
       {name: "Content-Type", value: "application/json"}
     ];
-    let response = httpRequest("GET", url, headers, "");
+    let response = match httpRequest("GET", url, headers, "") {
+      Ok(body) => body,
+      Err(e) => ""
+    };
     apiKeyFormatList(response, userId)
   }
 }
 
 -- Revoke an API key by keyId.
 @route("POST", "/api/v1/keys/revoke")
-export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, Net, Env, Clock} {
+export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, FS, Net, Env, Clock} {
   if length(keyId) == 0 then
     encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
   else {
@@ -214,7 +222,7 @@ export func revokeApiKey(keyId: string, userId: string) -> string ! {IO, Net, En
 
 -- Rotate an API key: generate new key, revoke old one, preserve tier + usage.
 @route("POST", "/api/v1/keys/rotate")
-export func rotateApiKey(keyId: string, userId: string) -> string ! {IO, Net, Env, Rand, Clock} {
+export func rotateApiKey(keyId: string, userId: string) -> string ! {IO, FS, Net, Env, Rand, Clock} {
   if length(keyId) == 0 then
     encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
   else {
@@ -267,7 +275,7 @@ export func rotateApiKey(keyId: string, userId: string) -> string ! {IO, Net, En
 
 -- Get usage stats for a user's API key.
 @route("POST", "/api/v1/keys/usage")
-export func getKeyUsage(keyId: string, userId: string) -> string ! {IO, Net, Env, Clock} {
+export func getKeyUsage(keyId: string, userId: string) -> string ! {IO, FS, Net, Env, Clock} {
   if length(keyId) == 0 then
     encode(jo([kv("error", js("keyId is required")), kv("status", js("error"))]))
   else {
@@ -285,7 +293,7 @@ export func getKeyUsage(keyId: string, userId: string) -> string ! {IO, Net, Env
 -- Performs lazy daily/monthly reset if timestamps are stale.
 -- Returns JSON: {"allowed": true, "tier": "free", "aiLimit": 5, "fsLimit": 100}
 -- or: {"allowed": false, "error": "Daily quota exceeded", "retryAfter": "..."}
-export func checkQuota(rawKey: string) -> string ! {IO, Net, Env, Clock} {
+export func checkQuota(rawKey: string) -> string ! {IO, FS, Net, Env, Clock} {
   if apiKeyIsValid(rawKey) == false then
     encode(jo([kv("allowed", jb(false)), kv("error", js("Invalid key format"))]))
   else {
@@ -305,7 +313,7 @@ export func checkQuota(rawKey: string) -> string ! {IO, Net, Env, Clock} {
 
 -- Record usage after a successful request.
 -- Increments requestsToday, pagesThisMonth, totalRequests, totalPages.
-export func recordUsage(rawKey: string, pagesProcessed: int) -> string ! {IO, Net, Env, Clock} {
+export func recordUsage(rawKey: string, pagesProcessed: int) -> string ! {IO, FS, Net, Env, Clock} {
   let keyHash = apiKeyHash(rawKey);
   let keyId = substring(keyHash, 0, 12);
   let docResponse = apiKeyFetchDoc(keyId);
@@ -317,7 +325,7 @@ export func recordUsage(rawKey: string, pagesProcessed: int) -> string ! {IO, Ne
 
 -- Validate an API key (used internally by middleware, not exposed as route).
 -- Returns userId if valid, empty string if invalid.
-export func validateApiKey(rawKey: string) -> string ! {IO, Net, Env} {
+export func validateApiKey(rawKey: string) -> string ! {IO, FS, Net, Env} {
   let keyHash = apiKeyHash(rawKey);
   let keyId = substring(keyHash, 0, 12);
   let url = apiKeyFirestoreDocUrl(keyId);
@@ -411,49 +419,77 @@ func apiKeyFirestoreDocUrl(keyId: string) -> string ! {Env} {
 }
 
 -- ============================================================
--- Firestore Operations
+-- Firestore Operations (with local FS stub)
 -- ============================================================
+-- Set FIRESTORE_STUB=true to use local filesystem instead of Firestore.
+-- Keys stored as JSON files in /tmp/docparse_keys/{keyId}.json
 
--- Store a key document in Firestore (with ADC auth)
-func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, Net, Env} {
-  let url = apiKeyFirestoreBaseUrl() ++ "?documentId=" ++ keyId;
-  let token = apiKeyGetAccessToken();
-  let headers = [
-    {name: "Authorization", value: "Bearer " ++ token},
-    {name: "Content-Type", value: "application/json"}
-  ];
-  match httpRequest("POST", url, headers, docJson) {
-    Ok(body) => body,
-    Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+-- Check if running in stub mode
+func apiKeyIsStub() -> bool ! {Env} =
+  getEnvOr("FIRESTORE_STUB", "false") == "true"
+
+-- Store a key document
+func apiKeyStore(keyId: string, docJson: string) -> string ! {IO, FS, Net, Env} {
+  if apiKeyIsStub() then {
+    let path = "/tmp/docparse_keys/" ++ keyId ++ ".json";
+    writeFile(path, docJson);
+    docJson
+  }
+  else {
+    let url = apiKeyFirestoreBaseUrl() ++ "?documentId=" ++ keyId;
+    let token = apiKeyGetAccessToken();
+    let headers = [
+      {name: "Authorization", value: "Bearer " ++ token},
+      {name: "Content-Type", value: "application/json"}
+    ];
+    match httpRequest("POST", url, headers, docJson) {
+      Ok(body) => body,
+      Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+    }
   }
 }
 
--- Fetch a key document from Firestore
-func apiKeyFetchDoc(keyId: string) -> string ! {IO, Net, Env} {
-  let url = apiKeyFirestoreDocUrl(keyId);
-  let token = apiKeyGetAccessToken();
-  let headers = [
-    {name: "Authorization", value: "Bearer " ++ token},
-    {name: "Content-Type", value: "application/json"}
-  ];
-  match httpRequest("GET", url, headers, "") {
-    Ok(body) => body,
-    Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+-- Fetch a key document
+func apiKeyFetchDoc(keyId: string) -> string ! {IO, FS, Net, Env} {
+  if apiKeyIsStub() then {
+    let path = "/tmp/docparse_keys/" ++ keyId ++ ".json";
+    if fileExists(path) then readFile(path)
+    else ""
+  }
+  else {
+    let url = apiKeyFirestoreDocUrl(keyId);
+    let token = apiKeyGetAccessToken();
+    let headers = [
+      {name: "Authorization", value: "Bearer " ++ token},
+      {name: "Content-Type", value: "application/json"}
+    ];
+    match httpRequest("GET", url, headers, "") {
+      Ok(body) => body,
+      Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+    }
   }
 }
 
 -- Update specific fields in a key document
-func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string]) -> string ! {IO, Net, Env} {
-  let pathParams = join("&", map(\p. "updateMask.fieldPaths=" ++ p, fieldPaths));
-  let url = apiKeyFirestoreDocUrl(keyId) ++ "?" ++ pathParams;
-  let token = apiKeyGetAccessToken();
-  let headers = [
-    {name: "Authorization", value: "Bearer " ++ token},
-    {name: "Content-Type", value: "application/json"}
-  ];
-  match httpRequest("PATCH", url, headers, fieldsJson) {
-    Ok(body) => body,
-    Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+func apiKeyUpdateFields(keyId: string, fieldsJson: string, fieldPaths: [string]) -> string ! {IO, FS, Net, Env} {
+  if apiKeyIsStub() then {
+    -- For stub mode, just overwrite the file (simplified, no field merge)
+    let path = "/tmp/docparse_keys/" ++ keyId ++ ".json";
+    writeFile(path, fieldsJson);
+    fieldsJson
+  }
+  else {
+    let pathParams = join("&", map(\p. "updateMask.fieldPaths=" ++ p, fieldPaths));
+    let url = apiKeyFirestoreDocUrl(keyId) ++ "?" ++ pathParams;
+    let token = apiKeyGetAccessToken();
+    let headers = [
+      {name: "Authorization", value: "Bearer " ++ token},
+      {name: "Content-Type", value: "application/json"}
+    ];
+    match httpRequest("PATCH", url, headers, fieldsJson) {
+      Ok(body) => body,
+      Err(e) => encode(jo([kv("error", js(e)), kv("status", js("http_error"))]))
+    }
   }
 }
 
@@ -474,7 +510,7 @@ func apiKeyGetAccessToken() -> string ! {Net} {
 
 -- Check quota from a Firestore document response.
 -- Performs lazy reset of daily/monthly counters.
-func apiKeyCheckQuotaFromDoc(docResponse: string, expectedHash: string, keyId: string, currentTime: string) -> string ! {IO, Net, Env} {
+func apiKeyCheckQuotaFromDoc(docResponse: string, expectedHash: string, keyId: string, currentTime: string) -> string ! {IO, FS, Net, Env} {
   match decode(docResponse) {
     Err(_) => encode(jo([kv("allowed", jb(false)), kv("error", js("Key not found"))])),
     Ok(json) =>
@@ -543,7 +579,7 @@ func apiKeyCheckQuotaFromDoc(docResponse: string, expectedHash: string, keyId: s
 }
 
 -- Persist lazy reset to Firestore (update counters + timestamps)
-func apiKeyPersistReset(keyId: string, currentTime: string, resetDaily: bool, resetMonthly: bool) -> string ! {IO, Net, Env} {
+func apiKeyPersistReset(keyId: string, currentTime: string, resetDaily: bool, resetMonthly: bool) -> string ! {IO, FS, Net, Env} {
   let dailyFields = if resetDaily then [
     kv("requestsToday", jo([kv("integerValue", js("0"))])),
     kv("lastResetDaily", jo([kv("stringValue", js(currentTime))]))
@@ -559,7 +595,7 @@ func apiKeyPersistReset(keyId: string, currentTime: string, resetDaily: bool, re
 }
 
 -- Increment usage counters after a successful request
-func apiKeyIncrementUsage(docResponse: string, keyId: string, pagesProcessed: int, currentTime: string) -> string ! {IO, Net, Env} {
+func apiKeyIncrementUsage(docResponse: string, keyId: string, pagesProcessed: int, currentTime: string) -> string ! {IO, FS, Net, Env} {
   match decode(docResponse) {
     Err(_) => "error: could not read key document",
     Ok(json) =>
