@@ -498,23 +498,78 @@
     return blocks;
   }
 
+  // ── Output data (for copy/download) ──
+  var lastOutput = { json: '', markdown: '', blocks: [] };
+
   // ── Output rendering ──
   function showOutput(blocks, rawContent) {
     if (outputEmpty) outputEmpty.style.display = 'none';
     if (outputTabs) outputTabs.classList.add('visible');
 
+    // Store for copy/download
+    lastOutput.blocks = blocks;
+    lastOutput.json = JSON.stringify(blocks, null, 2);
+    lastOutput.markdown = blocksToMarkdown(blocks);
+
     // Blocks view
     if (panelBlocks) panelBlocks.innerHTML = renderBlocks(blocks);
 
     // JSON view
-    if (panelJson) panelJson.innerHTML = '<pre>' + escHtml(JSON.stringify(blocks, null, 2)) + '</pre>';
+    if (panelJson) panelJson.innerHTML = '<pre>' + escHtml(lastOutput.json) + '</pre>';
 
     // Markdown view
-    if (panelMarkdown) panelMarkdown.innerHTML = '<pre>' + escHtml(blocksToMarkdown(blocks)) + '</pre>';
+    if (panelMarkdown) panelMarkdown.innerHTML = '<pre>' + escHtml(lastOutput.markdown) + '</pre>';
+
+    // Show action buttons
+    var actionsEl = document.getElementById('output-actions');
+    if (actionsEl) actionsEl.style.display = 'flex';
 
     // Show active tab
     window.switchOutputTab(document.querySelector('#output-tabs .dp-output-tab.active'));
   }
+
+  // ── Copy to clipboard ──
+  window.dpCopyOutput = function () {
+    var activeTab = document.querySelector('#output-tabs .dp-output-tab.active');
+    var which = activeTab ? activeTab.getAttribute('data-tab') : 'json';
+    var text = which === 'json' ? lastOutput.json : which === 'markdown' ? lastOutput.markdown : lastOutput.markdown;
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-output-btn');
+        if (btn) { var orig = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = orig; }, 1500); }
+      });
+    }
+  };
+
+  // ── Download output ──
+  window.dpDownloadOutput = function () {
+    var activeTab = document.querySelector('#output-tabs .dp-output-tab.active');
+    var which = activeTab ? activeTab.getAttribute('data-tab') : 'json';
+
+    var text, filename, mime;
+    if (which === 'json') {
+      text = lastOutput.json;
+      filename = 'docparse-output.json';
+      mime = 'application/json';
+    } else if (which === 'markdown') {
+      text = lastOutput.markdown;
+      filename = 'docparse-output.md';
+      mime = 'text/markdown';
+    } else {
+      text = lastOutput.json;
+      filename = 'docparse-output.json';
+      mime = 'application/json';
+    }
+
+    var blob = new Blob([text], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   function renderBlocks(blocks) {
     if (!Array.isArray(blocks)) return '<div class="dp-block"><div class="dp-block-text">No blocks</div></div>';
