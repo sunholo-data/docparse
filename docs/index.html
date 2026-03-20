@@ -32,37 +32,37 @@
 
     <div class="dp-stats-strip reveal reveal-delay-3">
       <div class="dp-stat-chip">
-        <span class="dp-stat-val" data-count="18">18</span>
-        <span class="dp-stat-lbl">modules</span>
+        <span class="dp-stat-val">13</span>
+        <span class="dp-stat-lbl">parse formats</span>
       </div>
       <div class="dp-stat-chip">
-        <span class="dp-stat-val">5,400+</span>
-        <span class="dp-stat-lbl">lines</span>
+        <span class="dp-stat-val">8</span>
+        <span class="dp-stat-lbl">generate formats</span>
       </div>
       <div class="dp-stat-chip">
-        <span class="dp-stat-val">15+</span>
-        <span class="dp-stat-lbl">formats</span>
+        <span class="dp-stat-val">100%</span>
+        <span class="dp-stat-lbl">structural recall</span>
       </div>
       <div class="dp-stat-chip">
-        <span class="dp-stat-val" data-count="63">63</span>
-        <span class="dp-stat-lbl">contracts</span>
+        <span class="dp-stat-val">0</span>
+        <span class="dp-stat-lbl">dependencies</span>
       </div>
       <div class="dp-stat-chip">
-        <span class="dp-stat-val">99.8%</span>
-        <span class="dp-stat-lbl">recall</span>
+        <span class="dp-stat-val">&lt;11ms</span>
+        <span class="dp-stat-lbl">per document</span>
       </div>
     </div>
 
     <div class="dp-hero-ctas reveal">
-      <a href="https://github.com/sunholo-data/docparse" class="dp-btn dp-btn--primary" target="_blank" rel="noopener">
-        <svg viewBox="0 0 16 16" width="16" height="16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        View on GitHub
+      <a href="try.html" class="dp-btn dp-btn--primary">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Try in Browser
       </a>
-      <a href="#demos" class="dp-btn dp-btn--secondary">
-        Try Demos
+      <a href="api.html" class="dp-btn dp-btn--secondary">
+        API &amp; SDKs
       </a>
-      <a href="https://github.com/sunholo-data/docparse#readme" class="dp-btn dp-btn--ghost" target="_blank" rel="noopener">
-        Documentation
+      <a href="selfhost.html" class="dp-btn dp-btn--ghost">
+        Self-Host
       </a>
     </div>
 
@@ -74,72 +74,53 @@
   <hr class="dp-divider">
 
   <!-- ============ DEMOS ============ -->
-  <section class="section reveal" id="demos">
+  <section class="section reveal" id="get-started">
     <div class="section-header">
-      <span class="section-title">Try It</span>
-      <span class="section-count">5 demos</span>
+      <span class="section-title">Get Started</span>
+      <span class="section-count">3 ways</span>
     </div>
-    <p class="section-desc">
-      All demos run entirely in your browser via WebAssembly. No server needed for Office formats.
-    </p>
 
     <div class="dp-demos-grid">
-      <a href="https://sunholo.com/ailang-demos/docparse.html" class="dp-demo-card dp-demo-card--parse" target="_blank" rel="noopener">
+      <a href="try.html" class="dp-demo-card dp-demo-card--parse">
         <span class="dp-demo-arrow">&rarr;</span>
-        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
-        <div class="dp-demo-name">DocParse</div>
-        <div class="dp-demo-desc">Drop a DOCX, PPTX, XLSX, PDF, or image and get structured output &mdash; headings, tables with merged cells, track changes, comments.</div>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+        <div class="dp-demo-name">Try in Browser</div>
+        <div class="dp-demo-desc">Drop a file and see structured output instantly. All parsing runs locally via WebAssembly &mdash; your files never leave the browser.</div>
         <div class="dp-demo-meta">
           <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
+          <span class="dp-demo-badge dp-demo-badge--wasm">Private</span>
         </div>
       </a>
 
-      <a href="https://sunholo.com/ailang-demos/extractor.html" class="dp-demo-card dp-demo-card--extract" target="_blank" rel="noopener">
+      <a href="api.html" class="dp-demo-card dp-demo-card--extract">
         <span class="dp-demo-arrow">&rarr;</span>
-        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></div>
-        <div class="dp-demo-name">Document Extractor</div>
-        <div class="dp-demo-desc">Upload any document, define a schema (or let AI detect one), and get validated, type-safe extraction results. 7 presets including invoice, receipt, and contract.</div>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <div class="dp-demo-name">API &amp; SDKs</div>
+        <div class="dp-demo-desc">REST API with Python, JavaScript, and Go SDKs. Drop-in replacement for Unstructured. Free tier with 20 requests/day.</div>
         <div class="dp-demo-meta">
-          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
-          <span class="dp-demo-badge dp-demo-badge--provider">Gemini</span>
-          <span class="dp-demo-badge dp-demo-badge--api">API key</span>
+          <span class="dp-demo-badge dp-demo-badge--api">REST</span>
+          <span class="dp-demo-badge dp-demo-badge--provider">Python</span>
+          <span class="dp-demo-badge dp-demo-badge--provider">JS</span>
+          <span class="dp-demo-badge dp-demo-badge--provider">Go</span>
         </div>
       </a>
 
-      <a href="https://sunholo.com/ailang-demos/contracts-ai.html" class="dp-demo-card dp-demo-card--contracts" target="_blank" rel="noopener">
+      <a href="selfhost.html" class="dp-demo-card dp-demo-card--verify">
         <span class="dp-demo-arrow">&rarr;</span>
-        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg></div>
-        <div class="dp-demo-name">AI + Contracts</div>
-        <div class="dp-demo-desc">AI extracts structured data from documents, then AILANG contracts validate every field before returning results. Deterministic validation of stochastic AI output.</div>
+        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
+        <div class="dp-demo-name">Self-Host</div>
+        <div class="dp-demo-desc">Run DocParse on your own infrastructure. Single binary, Docker image, or integrate as a library. Zero runtime dependencies for Office formats.</div>
         <div class="dp-demo-meta">
-          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
-          <span class="dp-demo-badge dp-demo-badge--provider">Gemini</span>
-          <span class="dp-demo-badge dp-demo-badge--api">API key</span>
-        </div>
-      </a>
-
-      <a href="https://sunholo.com/ailang-demos/verify.html" class="dp-demo-card dp-demo-card--verify" target="_blank" rel="noopener">
-        <span class="dp-demo-arrow">&rarr;</span>
-        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
-        <div class="dp-demo-name">Z3 Verify</div>
-        <div class="dp-demo-desc">Prove contracts correct at compile time &mdash; no tests needed. 42 contracts verified, 4 bugs caught across cloud billing, access control, and scheduling.</div>
-        <div class="dp-demo-meta">
-          <span class="dp-demo-badge dp-demo-badge--wasm">WASM</span>
-        </div>
-      </a>
-
-      <a href="https://sunholo.com/ailang-demos/streaming/voice_docparse/index.html" class="dp-demo-card dp-demo-card--voice" target="_blank" rel="noopener">
-        <span class="dp-demo-arrow">&rarr;</span>
-        <div class="dp-demo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-4"/><path d="M9.5 15.5a2.5 2.5 0 005 0V14a2.5 2.5 0 00-5 0"/></svg></div>
-        <div class="dp-demo-name">Voice DocParse</div>
-        <div class="dp-demo-desc">Upload a document and talk to it. Gemini Live bidirectional audio lets you ask questions about your documents conversationally.</div>
-        <div class="dp-demo-meta">
-          <span class="dp-demo-badge dp-demo-badge--ws">WebSocket</span>
-          <span class="dp-demo-badge dp-demo-badge--provider">Gemini Live</span>
-          <span class="dp-demo-badge dp-demo-badge--api">API key</span>
+          <span class="dp-demo-badge dp-demo-badge--wasm">CLI</span>
+          <span class="dp-demo-badge dp-demo-badge--wasm">Docker</span>
         </div>
       </a>
     </div>
+
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted)">
+      More interactive demos: <a href="https://sunholo.com/ailang-demos/" style="color:var(--dp-blue)">WASM demos</a> &mdash;
+      document extraction, AI contracts, Z3 verification, voice parsing
+    </p>
   </section>
 
   <hr class="dp-divider">
