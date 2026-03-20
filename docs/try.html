@@ -289,6 +289,11 @@
     <p class="subtitle reveal reveal-delay-1">Drop a file. No data leaves your machine.</p>
   </section>
 
+  <!-- WASM status -->
+  <div style="text-align:center;margin-bottom:8px">
+    <span id="wasm-status" style="font-family:var(--font-mono);font-size:11px;color:var(--dp-blue)">Loading WASM runtime...</span>
+  </div>
+
   <!-- Privacy notice -->
   <div class="dp-privacy reveal">
     <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -368,168 +373,27 @@
 </div>
 
 <script src="js/components.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="js/wasm-demo.js"></script>
 <script>
+// API key persistence
 (function() {
-  var dropzone = document.getElementById('dropzone');
-  var fileInput = document.getElementById('file-input');
-  var outputEmpty = document.getElementById('output-empty');
-  var infoBar = document.getElementById('info-bar');
-  var outputTabs = document.getElementById('output-tabs');
-  var panelBlocks = document.getElementById('panel-blocks');
-  var panelJson = document.getElementById('panel-json');
-  var panelMarkdown = document.getElementById('panel-markdown');
-  var aiUpsell = document.getElementById('ai-upsell');
   var apiKeyInput = document.getElementById('api-key-input');
-
-  // Load saved API key
-  var savedKey = localStorage.getItem('docparse_google_api_key') || '';
+  var savedKey = localStorage.getItem('gemini-api-key') || '';
   if (savedKey) apiKeyInput.value = savedKey;
   apiKeyInput.addEventListener('change', function() {
-    localStorage.setItem('docparse_google_api_key', this.value);
+    localStorage.setItem('gemini-api-key', this.value);
   });
 
-  // Drag and drop
-  ['dragenter', 'dragover'].forEach(function(evt) {
-    dropzone.addEventListener(evt, function(e) {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-  });
-  ['dragleave', 'drop'].forEach(function(evt) {
-    dropzone.addEventListener(evt, function(e) {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-    });
-  });
-  dropzone.addEventListener('drop', function(e) {
-    var files = e.dataTransfer.files;
-    if (files.length > 0) handleFile(files[0]);
-  });
-  fileInput.addEventListener('change', function() {
-    if (this.files.length > 0) handleFile(this.files[0]);
-  });
-
-  // Format detection
-  function getExt(name) {
-    var parts = name.split('.');
-    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
-  }
-
-  function getFormat(ext) {
-    var zip = ['docx','pptx','xlsx','odt','odp','ods','epub'];
-    var text = ['html','htm','md','csv','tsv'];
-    var ai = ['pdf','png','jpg','jpeg','gif','bmp','tiff','webp'];
-    if (zip.indexOf(ext) !== -1) return 'zip';
-    if (text.indexOf(ext) !== -1) return 'text';
-    if (ai.indexOf(ext) !== -1) return 'ai';
-    return 'unknown';
-  }
-
-  function handleFile(file) {
-    var ext = getExt(file.name);
-    var format = getFormat(ext);
-    var sizeKB = (file.size / 1024).toFixed(1);
-
-    // Show info bar
-    infoBar.innerHTML =
-      '<span class="dp-info-chip">' + ext.toUpperCase() + '</span>' +
-      '<span class="dp-info-chip">' + (format === 'ai' ? 'AI Required' : 'Deterministic') + '</span>' +
-      '<span class="dp-info-chip">' + sizeKB + ' KB</span>';
-    infoBar.classList.add('visible');
-    outputTabs.classList.add('visible');
-    outputEmpty.style.display = 'none';
-
-    if (format === 'ai') {
-      var key = apiKeyInput.value;
-      if (!key) {
-        aiUpsell.classList.add('visible');
-        showOutput('This format requires AI. Add your Google API key in AI Settings above.', '{}', 'AI required for ' + ext.toUpperCase());
-        return;
-      }
-      aiUpsell.classList.remove('visible');
-      showOutput('Parsing ' + file.name + ' via AI... (WASM integration coming soon)', '{"status": "wasm_pending"}', 'AI parsing via WASM coming soon');
-      return;
-    }
-
-    aiUpsell.classList.remove('visible');
-
-    if (format === 'text') {
-      var reader = new FileReader();
-      reader.onload = function() {
-        var content = reader.result;
-        showOutput(
-          renderTextBlocks(content, ext),
-          JSON.stringify({status: 'success', format: ext, content_length: content.length}, null, 2),
-          content.substring(0, 2000)
-        );
-        infoBar.innerHTML += '<span class="dp-info-chip">' + content.length + ' chars</span>';
-      };
-      reader.readAsText(file);
-      return;
-    }
-
-    if (format === 'zip') {
-      // For ZIP-based formats, show a message about WASM integration
-      showOutput(
-        '<div class="dp-block"><div class="dp-block-text">Parsing ' + file.name + '...</div></div>' +
-        '<div class="dp-block"><div class="dp-block-text" style="color:var(--dp-blue)">Full WASM parsing coming soon. For now, try the <a href="https://sunholo.com/ailang-demos/docparse.html" style="color:var(--dp-blue)">interactive demo</a> or the <a href="api.html" style="color:var(--dp-blue)">API</a>.</div></div>',
-        JSON.stringify({status: 'pending', format: ext, filename: file.name, size: file.size}, null, 2),
-        'File: ' + file.name + '\nFormat: ' + ext + '\nSize: ' + sizeKB + ' KB\n\nFull WASM parsing integration coming soon.'
-      );
-      return;
-    }
-
-    showOutput(
-      '<div class="dp-block"><div class="dp-block-text">Unsupported format: ' + ext + '</div></div>',
-      '{"error": "unsupported format"}',
-      'Unsupported: ' + ext
-    );
-  }
-
-  function renderTextBlocks(content, ext) {
-    var lines = content.split('\n');
-    var html = '';
-    if (ext === 'md') {
-      lines.forEach(function(line) {
-        if (line.match(/^### /)) html += '<div class="dp-block"><div class="dp-block-heading" data-level="3">' + escHtml(line.replace(/^### /, '')) + '</div></div>';
-        else if (line.match(/^## /)) html += '<div class="dp-block"><div class="dp-block-heading" data-level="2">' + escHtml(line.replace(/^## /, '')) + '</div></div>';
-        else if (line.match(/^# /)) html += '<div class="dp-block"><div class="dp-block-heading" data-level="1">' + escHtml(line.replace(/^# /, '')) + '</div></div>';
-        else if (line.trim()) html += '<div class="dp-block"><div class="dp-block-text">' + escHtml(line) + '</div></div>';
-      });
-    } else if (ext === 'csv' || ext === 'tsv') {
-      var delim = ext === 'tsv' ? '\t' : ',';
-      html += '<table class="dp-block-table"><tbody>';
-      lines.slice(0, 50).forEach(function(line, i) {
-        if (!line.trim()) return;
-        var cells = line.split(delim);
-        var tag = i === 0 ? 'th' : 'td';
-        html += '<tr>' + cells.map(function(c) { return '<' + tag + '>' + escHtml(c) + '</' + tag + '>'; }).join('') + '</tr>';
-      });
-      html += '</tbody></table>';
-      if (lines.length > 50) html += '<div class="dp-block"><div class="dp-block-text" style="color:var(--text-muted)">... showing first 50 rows of ' + lines.length + '</div></div>';
-    } else {
-      // HTML or other text
-      html += '<div class="dp-block"><div class="dp-block-text" style="white-space:pre-wrap;font-family:var(--font-mono);font-size:12px">' + escHtml(content.substring(0, 5000)) + '</div></div>';
-    }
-    return html;
-  }
-
-  function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  function showOutput(blocksHtml, jsonStr, markdownStr) {
-    panelBlocks.innerHTML = blocksHtml;
-    panelJson.innerHTML = '<pre>' + escHtml(jsonStr) + '</pre>';
-    panelMarkdown.innerHTML = '<pre>' + escHtml(markdownStr) + '</pre>';
-    // Show active tab
-    switchOutputTab(document.querySelector('.dp-output-tab.active'));
-  }
-
+  // switchOutputTab used by wasm-demo.js
   window.switchOutputTab = function(tab) {
+    if (!tab) return;
     document.querySelectorAll('#output-tabs .dp-output-tab').forEach(function(t) { t.classList.remove('active'); });
     tab.classList.add('active');
     var which = tab.getAttribute('data-tab');
+    var panelBlocks = document.getElementById('panel-blocks');
+    var panelJson = document.getElementById('panel-json');
+    var panelMarkdown = document.getElementById('panel-markdown');
     panelBlocks.style.display = which === 'blocks' ? 'block' : 'none';
     panelJson.style.display = which === 'json' ? 'block' : 'none';
     panelMarkdown.style.display = which === 'markdown' ? 'block' : 'none';

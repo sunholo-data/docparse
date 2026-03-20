@@ -30,6 +30,7 @@ import docparse/services/xlsx_generator (generateXlsx)
 import docparse/services/odt_generator (generateOdt)
 import docparse/services/odp_generator (generateOdp)
 import docparse/services/ods_generator (generateOds)
+import docparse/services/qmd_generator (generateQmd)
 import docparse/services/ai_generator (aiGenerateBlocks)
 import docparse/services/xml_helpers (xmlEscape)
 import docparse/services/unstructured_compat (blocksToUnstructuredJson, unstMimeType)
@@ -240,7 +241,12 @@ func generateDocument(outputPath: string, prompt: string) -> () ! {IO, FS, AI, E
     writeFile(outputPath, md);
     println("Generated Markdown: " ++ outputPath)
   }
-  else println("Unsupported format: " ++ ext ++ " (supported: html, docx, pptx, xlsx, odt, odp, ods, md)");
+  else if ext == "qmd" then {
+    let qmd = generateQmd(doc);
+    writeFile(outputPath, qmd);
+    println("Generated Quarto Markdown: " ++ outputPath)
+  }
+  else println("Unsupported format: " ++ ext ++ " (supported: html, docx, pptx, xlsx, odt, odp, ods, md, qmd)");
 
   println("");
   println("=== DocParse Generation Complete ===")
@@ -985,7 +991,12 @@ func writeOutputs(doc: ParsedDocument, result: ExtractionResult, doSummarize: bo
       writeFile(convertTarget, md);
       println("Converted to Markdown: " ++ convertTarget)
     }
-    else println("Unsupported conversion format: " ++ convertExt ++ " (supported: html, docx, pptx, xlsx, odt, odp, ods, md)")
+    else if convertExt == "qmd" then {
+      let qmd = generateQmd(doc);
+      writeFile(convertTarget, qmd);
+      println("Converted to Quarto Markdown: " ++ convertTarget)
+    }
+    else println("Unsupported conversion format: " ++ convertExt ++ " (supported: html, docx, pptx, xlsx, odt, odp, ods, md, qmd)")
   }
   else ();
 
