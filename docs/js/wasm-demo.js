@@ -26,7 +26,7 @@
   // No CDN fallback — WASM binary deployed via GitHub Actions (pages.yml)
   // For local dev: run `bash docs/wasm/download.sh`
   var MODULE_BASE = 'ailang/';  // relative to docs/
-  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+  var MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB (browser memory limit with WASM runtime)
   var MAX_XML_SIZE = 5 * 1024 * 1024;   // 5MB per entry
   var MAX_SLIDES = 50;
   var MAX_SHEETS = 50;
@@ -230,7 +230,7 @@
   window.handleDocParseFile = async function (file) {
     // Validate size
     if (file.size > MAX_FILE_SIZE) {
-      showError('File too large (' + (file.size / 1024 / 1024).toFixed(1) + 'MB). Max: 50MB.');
+      showError('File too large for browser parsing (' + (file.size / 1024 / 1024).toFixed(1) + 'MB). Use the <a href="api.html" style="color:var(--dp-blue)">API</a> for files up to 200MB.');
       return;
     }
 
