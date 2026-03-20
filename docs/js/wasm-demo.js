@@ -95,15 +95,16 @@
 
       setStatus('Initializing AILANG...');
       var repl = new AilangREPL();
-      // Try local WASM first, fall back to CDN
-      // ailang-repl.js handles MIME type fallback internally
+      // Try local WASM first (if available), fall back to CDN
+      var wasmUrl = WASM_CDN_FALLBACK;
       try {
-        await repl.init(WASM_BINARY_URL);
-      } catch (e) {
-        console.warn('Local WASM failed, trying CDN:', e.message);
-        setStatus('Loading WASM from CDN...');
-        await repl.init(WASM_CDN_FALLBACK);
-      }
+        var probe = await fetch(WASM_BINARY_URL, { method: 'HEAD' });
+        if (probe.ok && probe.status === 200) {
+          wasmUrl = WASM_BINARY_URL;
+        }
+      } catch (e) { /* local not available, use CDN */ }
+      setStatus('Loading WASM runtime (' + (wasmUrl === WASM_BINARY_URL ? 'local' : 'CDN') + ')...');
+      await repl.init(wasmUrl);
 
       // Import stdlib
       var stdlibs = ['std/json', 'std/option', 'std/result', 'std/string', 'std/math', 'std/ai'];
