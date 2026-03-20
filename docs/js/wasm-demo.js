@@ -20,7 +20,9 @@
   'use strict';
 
   // ── Configuration ──
-  var WASM_BASE = '';  // local — vendored from ailang repo
+  // WASM binary loaded from ailang-demos (GitHub Pages serves .wasm with wrong MIME type)
+  // JS files and AILANG modules loaded locally
+  var WASM_BINARY_URL = 'https://sunholo.com/ailang-demos/wasm/ailang.wasm';
   var MODULE_BASE = 'ailang/';  // relative to docs/
   var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
   var MAX_XML_SIZE = 5 * 1024 * 1024;   // 5MB per entry
@@ -82,6 +84,7 @@
       }
 
       // Load WASM runtime scripts from ailang-demos
+      // JS runtime files loaded locally (vendored from ailang repo)
       await loadScript('wasm/wasm_exec.js');
       await loadScript('wasm/ailang-repl.js');
 
@@ -91,7 +94,16 @@
 
       setStatus('Initializing AILANG...');
       var repl = new AilangREPL();
-      await repl.init('wasm/ailang.wasm');
+      // WASM binary from ailang-demos CDN (GitHub Pages can't serve .wasm MIME type)
+      // Falls back to local for dev (if downloaded via wasm/download.sh)
+      var wasmUrl = WASM_BINARY_URL;
+      try {
+        var localCheck = await fetch('wasm/ailang.wasm', { method: 'HEAD' });
+        if (localCheck.ok && localCheck.headers.get('content-type')?.includes('wasm')) {
+          wasmUrl = 'wasm/ailang.wasm';
+        }
+      } catch (e) { /* use CDN */ }
+      await repl.init(wasmUrl);
 
       // Import stdlib
       var stdlibs = ['std/json', 'std/option', 'std/result', 'std/string', 'std/math', 'std/ai'];
