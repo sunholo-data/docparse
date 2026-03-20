@@ -1,0 +1,18 @@
+{
+  "name": "@sunholo/docparse",
+  "version": "0.1.0",
+  "description": "JavaScript/TypeScript client for the DocParse document parsing API",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": ["src/"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sunholo-data/docparse"
+  },
+  "keywords": ["docparse", "document-parsing", "unstructured", "ailang"],
+  "scripts": {
+    "test": "node --test tests/client.test.ts"
+  }
+}
