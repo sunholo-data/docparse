@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Benchmarks — DocParse</title>
+<link rel="icon" type="image/svg+xml" href="img/docparse-logo.svg">
+<meta name="description" content="DocParse benchmarks — 100% structural recall on 53 Office files. Competitor comparison vs Unstructured, Docling, LlamaParse.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+<link rel="stylesheet" href="css/docparse.css">
+<link rel="stylesheet" href="css/prism.css">
+<style>
+.dp-bench-section { margin-bottom: 48px; }
+.dp-bench-section h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  letter-spacing: -0.3px;
+}
+.dp-bench-section p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 14px;
+}
+/* Stats hero */
+.dp-bench-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.dp-bench-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.dp-bench-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--dp-blue);
+}
+.dp-bench-stat-val {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--dp-blue);
+  line-height: 1.2;
+}
+.dp-bench-stat-lbl {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+/* Results table */
+.dp-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.dp-results-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.dp-results-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.dp-results-table .pass { color: var(--success); font-weight: 600; }
+.dp-results-table .fail { color: #ef4444; font-weight: 600; }
+.dp-results-table .partial { color: var(--warning); }
+.dp-results-table .na { color: var(--text-muted); }
+/* Competitor row highlight */
+.dp-results-table tr td:nth-child(2) {
+  background: var(--dp-blue-faded);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+/* Format breakdown */
+.dp-format-breakdown {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.dp-format-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  text-align: center;
+}
+.dp-format-chip-ext {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dp-format-chip-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.dp-format-chip-status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--success);
+  margin-top: 4px;
+}
+/* Callout */
+.dp-bench-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--dp-blue-faded);
+  border: 1px solid var(--dp-blue-border);
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.dp-bench-callout svg {
+  width: 18px; height: 18px; min-width: 18px;
+  margin-top: 1px;
+  stroke: var(--dp-blue); fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+@media (max-width: 900px) {
+  .dp-bench-stats { grid-template-columns: repeat(2, 1fr); }
+  .dp-format-breakdown { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .dp-bench-stats { grid-template-columns: 1fr 1fr; }
+  .dp-format-breakdown { grid-template-columns: repeat(2, 1fr); }
+  .dp-results-table { font-size: 11px; }
+  .dp-results-table th, .dp-results-table td { padding: 8px; }
+}
+</style>
+</head>
+<body>
+
+<div id="header-mount"></div>
+
+<div class="page">
+
+  <section class="hero" style="margin-bottom:32px">
+    <h1 class="reveal"><span class="dp-accent">Benchmarks</span></h1>
+    <p class="subtitle reveal reveal-delay-1">Structural parsing quality nobody else measures.</p>
+  </section>
+
+  <!-- Top stats -->
+  <div class="dp-bench-stats reveal">
+    <div class="dp-bench-stat">
+      <div class="dp-bench-stat-val">53</div>
+      <div class="dp-bench-stat-lbl">Golden Files</div>
+    </div>
+    <div class="dp-bench-stat">
+      <div class="dp-bench-stat-val">100%</div>
+      <div class="dp-bench-stat-lbl">Structural Recall</div>
+    </div>
+    <div class="dp-bench-stat">
+      <div class="dp-bench-stat-val">10</div>
+      <div class="dp-bench-stat-lbl">Formats Tested</div>
+    </div>
+    <div class="dp-bench-stat">
+      <div class="dp-bench-stat-val">11ms</div>
+      <div class="dp-bench-stat-lbl">Avg Parse Time</div>
+    </div>
+  </div>
+
+  <!-- Office Structural Benchmark -->
+  <section class="dp-bench-section reveal">
+    <h2>Office Structural Benchmark (OfficeDocBench)</h2>
+    <p>Most benchmarks focus on PDF extraction accuracy. Nobody benchmarks <strong>Office parsing quality</strong> &mdash; whether a parser preserves track changes, merged cells, comments, headers/footers, and text boxes. This is our moat.</p>
+
+    <div class="dp-bench-callout">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div><strong>OfficeDocBench</strong> is the first benchmark focused on structural Office parsing quality. 53 real-world files across 10 formats, checking 8 structural properties that competitors miss entirely.</div>
+    </div>
+
+    <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin:20px 0 12px">Format Coverage</h3>
+    <div class="dp-format-breakdown">
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">DOCX</div><div class="dp-format-chip-count">12 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">PPTX</div><div class="dp-format-chip-count">6 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">XLSX</div><div class="dp-format-chip-count">6 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">HTML</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">Markdown</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">CSV</div><div class="dp-format-chip-count">4 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODT</div><div class="dp-format-chip-count">3 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODP/ODS</div><div class="dp-format-chip-count">4 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">EPUB</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">TSV</div><div class="dp-format-chip-count">3 files</div><div class="dp-format-chip-status">100%</div></div>
+    </div>
+
+    <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin:20px 0 12px">Structural Checks</h3>
+    <p>Each file is tested against these structural properties:</p>
+    <table class="dp-results-table">
+      <thead>
+        <tr><th>Check</th><th>Description</th><th>Result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Tables</td><td>Table detection, row/column counts, cell content</td><td class="pass">PASS</td></tr>
+        <tr><td>Merged Cells</td><td>Colspan/rowspan preservation</td><td class="pass">PASS</td></tr>
+        <tr><td>Track Changes</td><td>Insert/delete change detection with author</td><td class="pass">PASS</td></tr>
+        <tr><td>Comments</td><td>Comment text + author attribution</td><td class="pass">PASS</td></tr>
+        <tr><td>Headers/Footers</td><td>Separate header/footer block extraction</td><td class="pass">PASS</td></tr>
+        <tr><td>Text Boxes</td><td>Floating text box content extraction</td><td class="pass">PASS</td></tr>
+        <tr><td>Images</td><td>Embedded image detection + path references</td><td class="pass">PASS</td></tr>
+        <tr><td>Metadata</td><td>Title, author, created/modified dates</td><td class="pass">PASS</td></tr>
+        <tr><td>Text Jaccard</td><td>Full-text similarity &ge; 0.95</td><td class="pass">PASS</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- Competitor Comparison -->
+  <section class="dp-bench-section reveal">
+    <h2>Competitor Comparison</h2>
+    <p>Office structural features that competitors miss:</p>
+
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <table class="dp-results-table">
+      <thead>
+        <tr><th>Feature</th><th>DocParse</th><th>Unstructured</th><th>Docling</th><th>LlamaParse</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Track Changes</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
+        <tr><td>Merged Cells</td><td class="pass">Full</td><td class="partial">Partial</td><td class="partial">Partial</td><td class="fail">None</td></tr>
+        <tr><td>Comments</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
+        <tr><td>Headers/Footers</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
+        <tr><td>Text Boxes</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
+        <tr><td>Footnotes/Endnotes</td><td class="pass">Full</td><td class="fail">None</td><td class="partial">Partial</td><td class="fail">None</td></tr>
+        <tr><td>ODT/ODP/ODS</td><td class="pass">Native</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
+        <tr><td>EPUB</td><td class="pass">Native</td><td class="partial">Basic</td><td class="fail">None</td><td class="fail">None</td></tr>
+        <tr><td>Deterministic</td><td class="pass">Yes</td><td class="pass">Yes</td><td class="pass">Yes</td><td class="fail">AI-only</td></tr>
+        <tr><td>Zero Dependencies</td><td class="pass">Yes</td><td class="fail">Python</td><td class="fail">Python</td><td class="fail">Cloud</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- PDF Benchmark -->
+  <section class="dp-bench-section reveal">
+    <h2>PDF Benchmark (OmniDocBench)</h2>
+    <p>For PDFs, DocParse delegates to whatever AI model you plug in. The benchmark measures AI accuracy, not our parsing code.</p>
+
+    <table class="dp-results-table">
+      <thead>
+        <tr><th>Model</th><th>Text ED &darr;</th><th>Table TEDS &uarr;</th><th>Reading Order ED &darr;</th></tr>
+      </thead>
+      <tbody>
+        <tr><td style="font-weight:600;color:var(--dp-blue)">Gemini 2.5 Flash</td><td>0.183</td><td>0.871</td><td>0.141</td></tr>
+        <tr><td>Gemini 2.0 Flash</td><td>0.210</td><td>0.842</td><td>0.168</td></tr>
+        <tr><td>Ollama (granite-docling)</td><td>0.890</td><td>0.120</td><td>0.920</td></tr>
+      </tbody>
+    </table>
+
+    <div class="dp-bench-callout">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div><strong>Recommended:</strong> <code style="font-family:var(--font-mono);font-size:12px;background:var(--bg-input);padding:1px 6px;border-radius:3px">gemini-2.5-flash</code> &mdash; best balance of accuracy and speed. Ollama models score low due to structured JSON output limitations.</div>
+    </div>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- Run It Yourself -->
+  <section class="dp-bench-section reveal">
+    <h2>Run the Benchmarks</h2>
+    <pre><code class="language-bash"># Quick smoke test (~15 seconds)
+bash benchmarks/quick_check.sh
+
+# Full 53-file Office structural benchmark (~10 minutes)
+uv run benchmarks/run_benchmarks.py --suite office
+
+# PDF benchmark (needs AI model)
+uv run benchmarks/run_benchmarks.py --suite pdf --ai gemini-2.5-flash
+
+# Competitor comparison
+uv run benchmarks/run_benchmarks.py --competitors              # all competitors
+uv run benchmarks/run_benchmarks.py --competitors docling      # just Docling
+uv run benchmarks/run_benchmarks.py --competitors llamaparse   # just LlamaParse
+
+# Regenerate golden outputs after parser changes
+bash benchmarks/generate_golden.sh</code></pre>
+    <p>Source code: <a href="https://github.com/sunholo-data/docparse/tree/main/benchmarks" style="color:var(--dp-blue)">benchmarks/</a> on GitHub.</p>
+  </section>
+
+  <div id="footer-mount"></div>
+
+</div>
+
+<script src="js/components.js"></script>
+<script src="js/prism.min.js"></script>
+</body>
+</html>

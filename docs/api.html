@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API — DocParse</title>
+<link rel="icon" type="image/svg+xml" href="img/docparse-logo.svg">
+<meta name="description" content="DocParse API — parse documents, generate files, manage keys. REST API, SDKs, MCP integration.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+<link rel="stylesheet" href="css/docparse.css">
+<link rel="stylesheet" href="css/prism.css">
+<style>
+/* ---- API page specifics ---- */
+.dp-api-section { margin-bottom: 48px; }
+.dp-api-section h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  letter-spacing: -0.3px;
+}
+.dp-api-section p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 14px;
+}
+
+/* Endpoint cards */
+.dp-endpoint {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.dp-endpoint:hover { border-color: var(--border-active); }
+.dp-endpoint-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  user-select: none;
+}
+.dp-endpoint-method {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 52px;
+  text-align: center;
+}
+.dp-method-get { background: var(--success-bg); color: var(--success); }
+.dp-method-post { background: var(--dp-blue-faded); color: var(--dp-blue); }
+.dp-endpoint-path {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.dp-endpoint-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.dp-endpoint-arrow {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.dp-endpoint.open .dp-endpoint-arrow { transform: rotate(90deg); }
+.dp-endpoint-body {
+  display: none;
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border);
+}
+.dp-endpoint.open .dp-endpoint-body { display: block; }
+.dp-endpoint-body pre {
+  margin: 10px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(37, 99, 235, 0.1);
+}
+.dp-endpoint-body pre code { font-size: 12px; line-height: 1.7; }
+.dp-try-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--dp-blue-border);
+  background: var(--dp-blue-faded);
+  color: var(--dp-blue);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dp-try-btn:hover { background: var(--dp-blue); color: #fff; }
+.dp-try-result {
+  margin-top: 10px;
+  background: var(--bg-code);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  max-height: 300px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  display: none;
+}
+.dp-try-result.visible { display: block; }
+
+/* Code snippet tabs */
+.dp-lang-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 12px 0 0;
+}
+.dp-lang-tab {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dp-lang-tab:hover { color: var(--text-secondary); }
+.dp-lang-tab.active { color: var(--dp-blue); background: var(--bg-code); border-color: var(--dp-blue-border); font-weight: 600; }
+.dp-lang-panel { display: none; }
+.dp-lang-panel.active { display: block; }
+.dp-lang-panel pre { margin-top: 0; border-top-left-radius: 0; }
+
+/* SDK cards */
+.dp-sdk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.dp-sdk-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
+}
+.dp-sdk-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.dp-sdk-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.dp-sdk-install {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-code);
+  color: #e2e8f0;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+  display: block;
+}
+.dp-sdk-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* Tier table */
+.dp-tier-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.dp-tier-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.dp-tier-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.dp-tier-table td:first-child { font-weight: 600; color: var(--text-primary); }
+
+/* Integration cards */
+.dp-integration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.dp-integration-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--dp-blue);
+  border-radius: var(--radius-sm);
+  padding: 22px 20px;
+}
+.dp-integration-card h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+.dp-integration-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+.dp-integration-card code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-input);
+  color: var(--dp-blue);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* Dashboard placeholder */
+.dp-dashboard-placeholder {
+  background: var(--bg-card);
+  border: 2px dashed var(--dp-blue-border);
+  border-radius: var(--radius);
+  padding: 40px 32px;
+  text-align: center;
+  margin-bottom: 32px;
+}
+.dp-dashboard-placeholder h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.dp-dashboard-placeholder p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.dp-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 26px;
+  border-radius: var(--radius-sm);
+  background: var(--dp-blue);
+  color: #fff;
+  border: 2px solid var(--dp-blue);
+  cursor: pointer;
+  transition: all 0.25s;
+  text-decoration: none;
+}
+.dp-signin-btn:hover { background: var(--dp-blue-dark); box-shadow: 0 4px 14px rgba(37,99,235,0.3); }
+
+@media (max-width: 900px) {
+  .dp-sdk-grid, .dp-integration-grid { grid-template-columns: 1fr; }
+  .dp-endpoint-desc { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="header-mount"></div>
+
+<div class="page">
+
+  <section class="hero" style="margin-bottom:32px">
+    <h1 class="reveal">Build With <span class="dp-accent">DocParse</span></h1>
+    <p class="subtitle reveal reveal-delay-1">Parse 13 formats, generate 8 &mdash; one API, zero dependencies.</p>
+    <div class="dp-hero-ctas reveal reveal-delay-2">
+      <a href="https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/api/_meta/docs" target="_blank" class="dp-btn dp-btn--secondary">Swagger UI &rarr;</a>
+      <a href="https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/api/_meta/openapi.json" target="_blank" class="dp-btn dp-btn--ghost">OpenAPI Spec</a>
+    </div>
+  </section>
+
+  <!-- Dashboard: Unauthenticated state -->
+  <div class="dp-dashboard-placeholder reveal" id="dashboard-placeholder">
+    <h3>API Dashboard</h3>
+    <p>Sign in to generate API keys, view usage, and manage your account.</p>
+    <button class="dp-signin-btn" id="signin-btn" onclick="dpSignIn()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+
+  <!-- Dashboard: Authenticated state -->
+  <div id="dashboard-active" style="display:none" class="reveal">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <span style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text-primary)">Welcome, </span>
+          <span id="dash-email" style="font-family:var(--font-mono);font-size:14px;color:var(--dp-blue)"></span>
+          <span style="font-family:var(--font-mono);font-size:11px;padding:3px 10px;border-radius:4px;background:var(--dp-blue-faded);color:var(--dp-blue);margin-left:8px">Free Tier</span>
+        </div>
+        <button style="font-family:var(--font-mono);font-size:11px;padding:6px 14px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-muted);cursor:pointer" onclick="dpSignOut()">Sign Out</button>
+      </div>
+
+      <!-- Keys table -->
+      <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:10px">API Keys</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.3px">Label</th>
+            <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.3px">Key ID</th>
+            <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.3px">Status</th>
+            <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.3px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="keys-table-body">
+          <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">Loading...</td></tr>
+        </tbody>
+      </table>
+
+      <!-- Generate key -->
+      <div style="display:flex;gap:10px;align-items:end">
+        <div style="flex:1">
+          <label style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-bottom:4px">Key Label</label>
+          <input id="key-label-input" type="text" placeholder="my-app" style="width:100%;font-family:var(--font-mono);font-size:12px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input)">
+        </div>
+        <button class="dp-signin-btn" style="white-space:nowrap" onclick="dpGenerateKey()">
+          + Generate Key
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key display modal -->
+  <div id="key-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:32px;max-width:520px;width:90%">
+      <h3 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:8px">Your API Key</h3>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Save this key now. It will <strong>not</strong> be shown again.</p>
+      <div style="background:var(--bg-code);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:16px;position:relative">
+        <code id="key-display" style="font-family:var(--font-mono);font-size:14px;color:#86efac;word-break:break-all"></code>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button id="copy-key-btn" class="dp-signin-btn" onclick="dpCopyKey()">Copy</button>
+        <button style="font-family:var(--font-mono);font-size:13px;padding:11px 26px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);cursor:pointer" onclick="dpCloseKeyModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Start -->
+  <section class="dp-api-section reveal">
+    <h2>Quick Start</h2>
+    <pre><code class="language-bash">curl -X POST https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/api/v1/parse \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{"args":["path/to/document.docx","blocks"]}'</code></pre>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- API Explorer -->
+  <section class="dp-api-section reveal">
+    <h2>API Explorer</h2>
+    <p>Interactive endpoint reference. Public endpoints can be tested live.</p>
+
+    <!-- Health -->
+    <div class="dp-endpoint" id="ep-health">
+      <div class="dp-endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dp-endpoint-method dp-method-get">GET</span>
+        <span class="dp-endpoint-path">/api/v1/health</span>
+        <span class="dp-endpoint-desc">Health check</span>
+        <span class="dp-endpoint-arrow">&rsaquo;</span>
+      </div>
+      <div class="dp-endpoint-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Returns service status, version, and format counts.</p>
+        <button class="dp-try-btn" onclick="tryEndpoint('GET', '/api/v1/health', this)">Try It</button>
+        <div class="dp-try-result" id="result-health"></div>
+      </div>
+    </div>
+
+    <!-- Formats -->
+    <div class="dp-endpoint" id="ep-formats">
+      <div class="dp-endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dp-endpoint-method dp-method-get">GET</span>
+        <span class="dp-endpoint-path">/api/v1/formats</span>
+        <span class="dp-endpoint-desc">Supported formats</span>
+        <span class="dp-endpoint-arrow">&rsaquo;</span>
+      </div>
+      <div class="dp-endpoint-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Lists all parseable and generatable formats.</p>
+        <button class="dp-try-btn" onclick="tryEndpoint('GET', '/api/v1/formats', this)">Try It</button>
+        <div class="dp-try-result" id="result-formats"></div>
+      </div>
+    </div>
+
+    <!-- Parse -->
+    <div class="dp-endpoint">
+      <div class="dp-endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dp-endpoint-method dp-method-post">POST</span>
+        <span class="dp-endpoint-path">/api/v1/parse</span>
+        <span class="dp-endpoint-desc">Parse a document</span>
+        <span class="dp-endpoint-arrow">&rsaquo;</span>
+      </div>
+      <div class="dp-endpoint-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Parse a document file and return structured Block ADT as JSON.</p>
+        <div class="dp-lang-tabs">
+          <span class="dp-lang-tab active" onclick="switchLang(this,'parse')">curl</span>
+          <span class="dp-lang-tab" onclick="switchLang(this,'parse')">Python</span>
+          <span class="dp-lang-tab" onclick="switchLang(this,'parse')">JavaScript</span>
+        </div>
+        <div class="dp-lang-panel active" data-group="parse" data-lang="curl">
+          <pre><code class="language-bash">curl -X POST https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/api/v1/parse \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_KEY" \
+  -d '{"args":["data/test_files/sample.docx","blocks"]}'</code></pre>
+        </div>
+        <div class="dp-lang-panel" data-group="parse" data-lang="Python">
+          <pre><code class="language-python">import requests
+
+resp = requests.post(
+    "https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/api/v1/parse",
+    headers={"x-api-key": "YOUR_KEY", "Content-Type": "application/json"},
+    json={"args": ["data/test_files/sample.docx", "blocks"]}
+)
+result = resp.json()["result"]</code></pre>
+        </div>
+        <div class="dp-lang-panel" data-group="parse" data-lang="JavaScript">
+          <pre><code class="language-javascript">const resp = await fetch(
+  "https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/api/v1/parse",
+  {
+    method: "POST",
+    headers: { "x-api-key": "YOUR_KEY", "Content-Type": "application/json" },
+    body: JSON.stringify({ args: ["data/test_files/sample.docx", "blocks"] })
+  }
+);
+const { result } = await resp.json();</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unstructured compat -->
+    <div class="dp-endpoint">
+      <div class="dp-endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dp-endpoint-method dp-method-post">POST</span>
+        <span class="dp-endpoint-path">/general/v0/general</span>
+        <span class="dp-endpoint-desc">Unstructured API compatibility</span>
+        <span class="dp-endpoint-arrow">&rsaquo;</span>
+      </div>
+      <div class="dp-endpoint-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Drop-in replacement for the Unstructured API. Returns element JSON in Unstructured format.</p>
+        <pre><code class="language-bash">curl -X POST https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app/general/v0/general \
+  -H "Content-Type: application/json" \
+  -d '{"args":["data/test_files/sample.docx","auto"]}'</code></pre>
+      </div>
+    </div>
+
+    <!-- Key management endpoints -->
+    <div class="dp-endpoint">
+      <div class="dp-endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dp-endpoint-method dp-method-post">POST</span>
+        <span class="dp-endpoint-path">/api/v1/keys/generate</span>
+        <span class="dp-endpoint-desc">Generate API key (auth required)</span>
+        <span class="dp-endpoint-arrow">&rsaquo;</span>
+      </div>
+      <div class="dp-endpoint-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Generate a new API key. Returns the raw key once &mdash; store it immediately.</p>
+        <pre><code class="language-bash">curl -X POST .../api/v1/keys/generate \
+  -H "Authorization: Bearer FIREBASE_ID_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"args":["user-id","my-app-label"]}'
+# Response: {"key": "dp_a1b2c3d4...", "keyId": "...", "tier": "free"}</code></pre>
+      </div>
+    </div>
+
+    <div class="dp-endpoint">
+      <div class="dp-endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dp-endpoint-method dp-method-post">POST</span>
+        <span class="dp-endpoint-path">/api/v1/keys/usage</span>
+        <span class="dp-endpoint-desc">Usage statistics</span>
+        <span class="dp-endpoint-arrow">&rsaquo;</span>
+      </div>
+      <div class="dp-endpoint-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Returns usage counters and quota limits for a key.</p>
+        <pre><code class="language-json">{
+  "tier": "free",
+  "usage": { "requestsToday": 12, "pagesThisMonth": 67 },
+  "quota": { "requestsPerDay": 20, "pagesPerMonth": 100 }
+}</code></pre>
+      </div>
+    </div>
+
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- Unstructured Migration -->
+  <section class="dp-api-section reveal">
+    <h2>Migrating from Unstructured</h2>
+    <p>Already using the Unstructured API? DocParse is a drop-in replacement. Change your server URL and you're done:</p>
+    <pre><code class="language-python"># Before (Unstructured)
+from unstructured_client import UnstructuredClient
+client = UnstructuredClient(server_url="https://api.unstructured.io")
+
+# After (DocParse) — one line change
+client = UnstructuredClient(
+    server_url="https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app"
+)</code></pre>
+    <p>The <code>/general/v0/general</code> endpoint returns identical element JSON. All existing code works unchanged.</p>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- AI Integration Guide -->
+  <section class="dp-api-section reveal">
+    <h2>Connect Your AI</h2>
+    <p>Three ways for AI systems to use DocParse:</p>
+
+    <div class="dp-integration-grid">
+      <div class="dp-integration-card">
+        <h3>CLI</h3>
+        <p>Direct invocation from scripts and pipelines. Best for batch processing.</p>
+        <pre style="margin-top:10px"><code class="language-bash">ailang run --entry main \
+  --caps IO,FS,Env \
+  docparse/main.ail myfile.docx</code></pre>
+      </div>
+      <div class="dp-integration-card">
+        <h3>REST API</h3>
+        <p>Standard HTTP with <code>x-api-key</code> header. Works from any language.</p>
+        <pre style="margin-top:10px"><code class="language-bash">curl -X POST .../api/v1/parse \
+  -H "x-api-key: dp_..." \
+  -d '{"args":["file.docx","blocks"]}'</code></pre>
+      </div>
+      <div class="dp-integration-card">
+        <h3>MCP Server</h3>
+        <p>DocParse as a tool for AI assistants (Claude, etc.) via Model Context Protocol.</p>
+        <pre style="margin-top:10px"><code class="language-json">{
+  "name": "docparse",
+  "description": "Parse documents",
+  "server": "ailang serve-api ..."
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- SDKs -->
+  <section class="dp-api-section reveal">
+    <h2>Client Libraries</h2>
+    <p>Thin HTTP wrappers for the DocParse API. Compatible with <code>unstructured-client</code> arguments.</p>
+
+    <div class="dp-sdk-grid">
+      <div class="dp-sdk-card">
+        <div class="dp-sdk-name">Python</div>
+        <code class="dp-sdk-install">pip install docparse</code>
+        <div class="dp-sdk-desc">Parse files, manage keys, handle pagination. Works with any Python HTTP client.</div>
+      </div>
+      <div class="dp-sdk-card">
+        <div class="dp-sdk-name">JavaScript / TypeScript</div>
+        <code class="dp-sdk-install">npm install @sunholo/docparse</code>
+        <div class="dp-sdk-desc">Browser and Node.js compatible. Fetch-based, zero dependencies.</div>
+      </div>
+      <div class="dp-sdk-card">
+        <div class="dp-sdk-name">Go</div>
+        <code class="dp-sdk-install">go get github.com/sunholo-data/docparse-go</code>
+        <div class="dp-sdk-desc">Typed client with context support. Native HTTP/2.</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="dp-divider">
+
+  <!-- Tier Comparison -->
+  <section class="dp-api-section reveal">
+    <h2>Pricing Tiers</h2>
+    <table class="dp-tier-table">
+      <thead>
+        <tr><th></th><th>Free</th><th>Pro — $29/mo</th><th>Enterprise</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Requests / day</td><td>20</td><td>2,000</td><td>Unlimited</td></tr>
+        <tr><td>Pages / month</td><td>100</td><td>10,000</td><td>100,000</td></tr>
+        <tr><td>Max file size</td><td>10 MB</td><td>50 MB</td><td>200 MB</td></tr>
+        <tr><td>AI pages / request</td><td>5</td><td>50</td><td>500</td></tr>
+        <tr><td>FS ops / request</td><td>100</td><td>5,000</td><td>50,000</td></tr>
+        <tr><td>Formats</td><td>All 13</td><td>All 13</td><td>All 13 + priority</td></tr>
+        <tr><td>Support</td><td>Community</td><td>Email</td><td>Dedicated</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-muted)">Capability budgets (AI/FS limits) are enforced at the type level by AILANG &mdash; a hard guarantee, not middleware rate limiting.</p>
+  </section>
+
+  <div id="footer-mount"></div>
+
+</div>
+
+<script src="vendor/firebase/firebase-app-compat.js"></script>
+<script src="vendor/firebase/firebase-auth-compat.js"></script>
+<script src="js/firebase-app.js"></script>
+<script src="js/components.js"></script>
+<script src="js/prism.min.js"></script>
+<script>
+var API_BASE = 'https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app';
+
+function tryEndpoint(method, path, btn) {
+  var resultEl = btn.parentElement.querySelector('.dp-try-result');
+  resultEl.textContent = 'Loading...';
+  resultEl.classList.add('visible');
+  fetch(API_BASE + path, { method: method })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      try {
+        var inner = JSON.parse(data.result);
+        resultEl.textContent = JSON.stringify(inner, null, 2);
+      } catch(e) {
+        resultEl.textContent = JSON.stringify(data, null, 2);
+      }
+    })
+    .catch(function(err) {
+      resultEl.textContent = 'Error: ' + err.message;
+    });
+}
+
+function switchLang(tab, group) {
+  var tabs = tab.parentElement.querySelectorAll('.dp-lang-tab');
+  tabs.forEach(function(t) { t.classList.remove('active'); });
+  tab.classList.add('active');
+  var lang = tab.textContent;
+  var panels = tab.parentElement.parentElement.querySelectorAll('.dp-lang-panel[data-group="' + group + '"]');
+  panels.forEach(function(p) {
+    p.classList.toggle('active', p.getAttribute('data-lang') === lang);
+  });
+}
+</script>
+</body>
+</html>
