@@ -23,7 +23,8 @@
   // WASM binary: local first (via wasm/download.sh), CDN fallback
   // ailang-repl.js now handles MIME type fallback (fetch+instantiate if streaming fails)
   var WASM_BINARY_URL = 'wasm/ailang.wasm';
-  var WASM_CDN_FALLBACK = 'https://sunholo.com/ailang-demos/wasm/ailang.wasm';
+  // No CDN fallback — WASM binary deployed via GitHub Actions (pages.yml)
+  // For local dev: run `bash docs/wasm/download.sh`
   var MODULE_BASE = 'ailang/';  // relative to docs/
   var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
   var MAX_XML_SIZE = 5 * 1024 * 1024;   // 5MB per entry
@@ -95,16 +96,8 @@
 
       setStatus('Initializing AILANG...');
       var repl = new AilangREPL();
-      // Try local WASM first (if available), fall back to CDN
-      var wasmUrl = WASM_CDN_FALLBACK;
-      try {
-        var probe = await fetch(WASM_BINARY_URL, { method: 'HEAD' });
-        if (probe.ok && probe.status === 200) {
-          wasmUrl = WASM_BINARY_URL;
-        }
-      } catch (e) { /* local not available, use CDN */ }
-      setStatus('Loading WASM runtime (' + (wasmUrl === WASM_BINARY_URL ? 'local' : 'CDN') + ')...');
-      await repl.init(wasmUrl);
+      setStatus('Loading WASM runtime...');
+      await repl.init(WASM_BINARY_URL);
 
       // Import stdlib
       var stdlibs = ['std/json', 'std/option', 'std/result', 'std/string', 'std/math', 'std/ai'];
