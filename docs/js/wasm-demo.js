@@ -65,10 +65,19 @@
   var panelMarkdown = document.getElementById('panel-markdown');
   var aiUpsell = document.getElementById('ai-upsell');
 
+  // ── Loading spinner (CSS-only) ──
+  var spinnerCSS = document.createElement('style');
+  spinnerCSS.textContent = '.dp-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--dp-blue-border);border-top-color:var(--dp-blue);border-radius:50%;animation:dp-spin .6s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes dp-spin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(spinnerCSS);
+
   // ── Status display ──
-  function setStatus(msg, isError) {
+  function setStatus(msg, isError, loading) {
     if (statusEl) {
-      statusEl.textContent = msg;
+      if (loading) {
+        statusEl.innerHTML = '<span class="dp-spinner"></span>' + msg;
+      } else {
+        statusEl.textContent = msg;
+      }
       statusEl.style.color = isError ? '#ef4444' : 'var(--dp-blue)';
     }
   }
@@ -77,7 +86,7 @@
   async function initWasm() {
     if (wasmReady || wasmLoading) return;
     wasmLoading = true;
-    setStatus('Loading WASM runtime...');
+    setStatus('Loading WASM runtime...', false, true);
 
     try {
       // Check for WebAssembly support
@@ -94,9 +103,9 @@
         throw new Error('AilangREPL not found after loading scripts');
       }
 
-      setStatus('Initializing AILANG...');
+      setStatus('Initializing AILANG...', false, true);
       var repl = new AilangREPL();
-      setStatus('Loading WASM runtime...');
+      setStatus('Loading WASM runtime...', false, true);
       await repl.init(WASM_BINARY_URL);
 
       // Import stdlib
@@ -272,7 +281,7 @@
 
   // ── Parse ZIP-based Office formats via WASM ──
   async function parseZipFile(file, ext) {
-    setStatus('Extracting ZIP...');
+    setStatus('Extracting ZIP...', false, true);
 
     try {
       var buffer = await file.arrayBuffer();
@@ -311,7 +320,7 @@
     if (bodyEntry) {
       var bodyXml = await bodyEntry.async('string');
       if (bodyXml.length <= MAX_XML_SIZE) {
-        setStatus('Parsing document body...');
+        setStatus('Parsing document body...', false, true);
         var r = engine.call('parseDocxBody', bodyXml);
         if (r.success) {
           var blocks = safeJsonParse(r.result, []);
@@ -432,15 +441,22 @@
       if (typeof engine.repl.grantCapability === 'function') engine.repl.grantCapability('AI');
     }
 
-    setStatus('Reading file...');
+    setStatus('Reading file...', false, true);
     var buffer = await file.arrayBuffer();
     var bytes = new Uint8Array(buffer);
-    var base64 = btoa(String.fromCharCode.apply(null, bytes));
+    // Convert to base64 in chunks (String.fromCharCode.apply has arg limit)
+    var base64 = '';
+    var chunkSize = 8192;
+    for (var ci = 0; ci < bytes.length; ci += chunkSize) {
+      var chunk = bytes.subarray(ci, Math.min(ci + chunkSize, bytes.length));
+      base64 += String.fromCharCode.apply(null, chunk);
+    }
+    base64 = btoa(base64);
 
     var mimeMap = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', tiff: 'image/tiff', webp: 'image/webp' };
     var mime = mimeMap[ext] || 'application/octet-stream';
 
-    setStatus('Parsing with AI (this may take a moment)...');
+    setStatus('Parsing with AI (this may take a moment)...', false, true);
     try {
       var r = await engine.callAsync('parseFileFromBase64', base64, mime, file.name);
       if (r.success) {
