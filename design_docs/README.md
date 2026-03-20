@@ -139,6 +139,10 @@ Old designs that have been superseded or abandoned.
 - Publish DocParse as a versioned AILANG package via the new registry
 - `ailang.pkg` manifest with capability declarations, exports, and metadata
 - Public vs internal module boundary (24 exported, 7 internal)
+- Migrate `xml_helpers` to use `std/xml` directly (stop wrapping stdlib), rename remainder to `docx_xml_helpers`
+- Extract reusable utilities into standalone packages:
+  - `ailang-office-zip` — generic ZIP read/list, MIME detection (used by 5 modules)
+  - `ailang-doc-eval` — Jaccard similarity, structural scoring (extract when second consumer appears)
 - CI/CD publish workflow: type-check → test → benchmark → `ailang pkg publish`
 - Consumers install with `ailang pkg add docparse` and import modules directly
 - Lock file (`ailang.lock`) for reproducible builds

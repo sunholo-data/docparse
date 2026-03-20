@@ -13,10 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ailang
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      # TODO: switch back to release binary once @route and std/xml.escapeXml ship in a release
+      # curl -sL https://github.com/sunholo-data/ailang/releases/latest/download/linux.x64.ailang.tar.gz | tar -xz
+      - name: Install ailang (dev branch — needs @route support)
         run: |
-          curl -sL https://github.com/sunholo-data/ailang/releases/latest/download/linux.x64.ailang.tar.gz | tar -xz
-          sudo mv ailang /usr/local/bin/
+          git clone --depth 1 --branch dev https://github.com/sunholo-data/ailang.git /tmp/ailang
+          cd /tmp/ailang && go build -o ailang . && sudo mv ailang /usr/local/bin/
           ailang --version
 
       - name: Type-check all 18 modules
@@ -44,10 +51,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ailang
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      # TODO: switch back to release binary once @route and std/xml.escapeXml ship in a release
+      - name: Install ailang (dev branch — needs @route support)
         run: |
-          curl -sL https://github.com/sunholo-data/ailang/releases/latest/download/linux.x64.ailang.tar.gz | tar -xz
-          sudo mv ailang /usr/local/bin/
+          git clone --depth 1 --branch dev https://github.com/sunholo-data/ailang.git /tmp/ailang
+          cd /tmp/ailang && go build -o ailang . && sudo mv ailang /usr/local/bin/
 
       - name: Set up Python
         uses: actions/setup-python@v5

@@ -55,7 +55,7 @@ docparse report.docx --output-dir /tmp/parsed  # Copy output to custom dir
 | Speaker notes | — | Yes | — | Dropped |
 | Multi-sheet extraction | — | — | Yes | Yes |
 
-This is our moat. Competitors (Unstructured, Docling, LlamaParse) either convert Office files to PDF first (losing structure) or use heuristics. DocParse reads the XML directly.
+Competitors (Unstructured, Docling, LlamaParse) either convert Office files to PDF first (losing structure) or use heuristics. DocParse reads the XML directly.
 
 ## Architecture
 

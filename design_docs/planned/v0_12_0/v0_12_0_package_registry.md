@@ -245,6 +245,119 @@ checksum = "sha256:abc123..."
 
 This file should be committed to source control for reproducible builds.
 
+## Extracting Reusable Packages
+
+Several DocParse modules contain general-purpose logic that isn't document-specific. Extracting these into standalone AILANG packages benefits the ecosystem and dogfoods the registry's dependency resolution.
+
+### Extraction Candidates
+
+| Current Module | Proposed Package | What Moves | What Stays in DocParse | Consumers (current) |
+|---|---|---|---|---|
+| `xml_helpers` | *(no extraction — migrate to `std/xml`)* | Nothing — `xmlEscape` already delegates to `std/xml.escapeXml`, `xmlElem`/`xmlWrap` can use `std/xml` tree API | DOCX-specific helpers (`docxContentTypes`, `docxRootRels`, `docxRun`, etc.) rename to `docx_xml_helpers` | 9 modules: all 7 generators + api_server + unstructured_compat |
+| `zip_extract` | `ailang-office-zip` | Generic ZIP read/list (`readZipEntry`, `listOfficeEntries`), MIME detection (`mediaMimeType`) | DocParse-specific wrappers (`readDocxContent`, `readCoreProperties`, `findSlideEntries`, `findMediaEntries`, `readComments`, etc.) | 5 modules: docx/pptx/xlsx parsers + main + api_server |
+| `eval` | `ailang-doc-eval` | Structural eval framework (`evalJaccard`, `evalComputeScore`, `evalNormalizeJson`), generic comparison logic | DocParse-specific golden benchmark integration | 1 module (main), but useful for any doc processing project |
+| `output_formatter` | *(keep internal)* | — | All of it — tightly coupled to Block ADT | 3 modules: main + api_server + browser |
+
+> **Note on `xml_helpers`**: No package extraction needed. `xmlEscape` is already a one-line wrapper around `std/xml.escapeXml`, and `xmlDecl` is a constant string. The `std/xml` stdlib already provides `xmlElement`, `xmlText`, and `serialize` for tree-based XML construction. The cleanup here is to **migrate callers to use `std/xml` directly** and rename the remaining Office-specific helpers to `docx_xml_helpers.ail` for clarity. This is a refactor, not an extraction.
+
+### Package Details
+
+#### `xml_helpers` → Migrate to `std/xml` (No Package Needed)
+
+`xml_helpers.ail` is mostly redundant now that `std/xml` exists. The cleanup:
+
+- **`xmlEscape`** → replace all 9 callers with `std/xml.escapeXml` directly
+- **`xmlDecl`** → inline the constant string or keep as a one-liner in `docx_xml_helpers`
+- **`xmlElem`/`xmlWrap`** → migrate to `std/xml` tree API (`xmlElement`, `xmlText`, `serialize`)
+- **`xmlAttrEscape`** → alias for `xmlEscape`, just use `escapeXml`
+
+Rename the file to `docx_xml_helpers.ail` with only the DOCX-specific functions remaining:
+- `docxContentTypes`, `docxRootRels`, `docxNs`, `docxRelsNs`, etc.
+- `docxRun`, `docxParagraph`, `docxStyledParagraph`
+
+After migration, generators change from:
+```ailang
+import docparse/services/xml_helpers (xmlEscape, xmlDecl)
+```
+to:
+```ailang
+import std/xml (escapeXml, xmlElement, xmlText, serialize)
+import docparse/services/docx_xml_helpers (docxContentTypes, docxRun, ...)  -- only DOCX generators
+```
+
+#### `ailang-office-zip` — Office ZIP Handling
+
+Office formats (DOCX, PPTX, XLSX, ODT, ODP, ODS) are all ZIP archives with XML inside. The generic ZIP traversal and MIME detection logic is useful for any AILANG project working with Office files.
+
+```toml
+[package]
+name = "ailang-office-zip"
+version = "1.0.0"
+description = "Read and list entries in Office ZIP archives (OOXML, ODF) with MIME detection"
+keywords = ["zip", "office", "ooxml", "odf", "docx", "pptx", "xlsx"]
+
+[capabilities]
+required = ["IO", "FS"]
+
+[dependencies]
+ailang-xml = "^1.0"  # for XML parsing within ZIP entries
+```
+
+**What moves:**
+- `readZipEntry(path, entry) -> string` — read a single ZIP entry as text
+- `listOfficeEntries(path) -> [string]` — list all entries in an Office ZIP
+- `mediaMimeType(filename) -> string` — MIME type from extension
+- Generic ZIP + XML entry reading patterns
+
+**What stays in DocParse:**
+- `readDocxContent`, `readCoreProperties`, `readAppProperties` — format-specific entry paths
+- `findSlideEntries`, `findSheetEntries`, `findHeaderEntries` — format-specific discovery
+- `readEmbeddedImage`, `readComments`, `resolveBlockImages` — DocParse Block integration
+
+#### `ailang-doc-eval` — Document Evaluation Toolkit
+
+Structural comparison metrics for document parsing benchmarks. Niche but valuable — any document processing project needs eval.
+
+```toml
+[package]
+name = "ailang-doc-eval"
+version = "1.0.0"
+description = "Jaccard similarity, JSON normalization, and scoring for document parsing evaluation"
+keywords = ["evaluation", "benchmark", "jaccard", "document", "comparison"]
+
+[capabilities]
+required = ["IO", "FS"]  # for reading golden files
+```
+
+**What moves:**
+- `evalJaccard(a, b) -> float` — Jaccard similarity between token sets
+- `evalNormalizeJson(json) -> string` — normalize JSON for comparison
+- `evalComputeScore(results) -> float` — aggregate scoring
+- Generic structural comparison functions
+
+### Extraction Strategy
+
+**Key principle: extract only when there's a second consumer.** Don't prematurely extract just because code *could* be reused. Wait until:
+1. DocParse uses the registry for its own dependencies (Phase 2 proves the workflow)
+2. Another AILANG project actually needs the same utility (real demand, not hypothetical)
+
+### Migration & Extraction Order
+
+1. **`xml_helpers` → `std/xml` migration** (refactor first) — no package needed, just stop wrapping stdlib. Rename remainder to `docx_xml_helpers`
+2. **`ailang-office-zip`** (extract first) — generic ZIP + MIME detection, validates the registry as both publisher and consumer
+3. **`ailang-doc-eval`** (extract later) — wait for a second consumer to validate demand
+
+### Impact on DocParse Module Count
+
+| Before | After |
+|--------|-------|
+| 31 internal modules | ~29 internal modules + 1-2 package dependencies |
+| `xml_helpers` wrapping `std/xml` | Direct `std/xml` usage + `docx_xml_helpers` (DOCX-only) |
+| 0 registry dependencies | 1-2 registry dependencies (`ailang-office-zip`, maybe `ailang-doc-eval`) |
+| All code in-repo | Generic utilities maintained as separate packages |
+
+This also makes DocParse a better test case for the registry — it becomes both a **publisher** (the `docparse` package) and a **consumer** (depends on `ailang-office-zip`).
+
 ## Migration Plan
 
 ### Phase 1: Manifest & Local Testing
@@ -267,13 +380,26 @@ This file should be committed to source control for reproducible builds.
 - Tag-triggered publishing
 - Registry badge on README
 
-### Phase 4: Consuming Dependencies (Future)
+### Phase 4: Migrate `xml_helpers` to `std/xml`
+- Replace all `xmlEscape` calls with `std/xml.escapeXml` across 9 modules
+- Migrate `xmlElem`/`xmlWrap` callers to `std/xml` tree API (`xmlElement`, `xmlText`, `serialize`)
+- Rename `xml_helpers.ail` → `docx_xml_helpers.ail` with only DOCX-specific functions
+- Delete the generic wrapper functions (they're now stdlib calls)
+- Verify full benchmark suite still passes at 100%
+
+### Phase 5: Extract `ailang-office-zip`
+- Create package with generic ZIP read/list and MIME detection
+- Keep format-specific wrappers (readDocxContent, findSlideEntries, etc.) in DocParse
+- Update 5 importing modules
+- Publish and add as dependency — validates transitive dependency resolution (`ailang-office-zip` → `ailang-xml`)
+
+### Phase 6: Consuming Third-Party Dependencies (Future)
 - As the AILANG ecosystem grows, adopt third-party packages:
   - JSON Schema validation library (for v0.11.0 structured extraction)
-  - MIME type detection library
   - Template engine (for QMD generation)
 - Declare these in `[dependencies]` section
 - Test dependency resolution with `ailang pkg install`
+- Extract `ailang-doc-eval` only when a second consumer appears
 
 ## Impact on Existing Workflows
 
