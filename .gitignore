@@ -12,6 +12,9 @@ __pycache__/
 .venv/
 uv.lock
 
+# Benchmark results (generated)
+benchmarks/officedocbench/results/
+
 # OS
 .DS_Store
 docs/wasm/ailang.wasm
