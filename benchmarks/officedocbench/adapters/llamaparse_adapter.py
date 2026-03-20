@@ -21,10 +21,10 @@ class LlamaParseAdapter(OfficeDocBenchAdapter):
 
     def version(self) -> str:
         try:
-            import llama_parse
-            return getattr(llama_parse, "__version__", "unknown")
-        except ImportError:
-            return "not installed"
+            from importlib.metadata import version as pkg_version
+            return pkg_version("llama-parse")
+        except Exception:
+            return "unknown"
 
     def parse(self, filepath: Path) -> dict[str, Any]:
         if not os.environ.get("LLAMA_CLOUD_API_KEY"):

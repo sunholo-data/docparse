@@ -101,20 +101,51 @@ uv run benchmarks/officedocbench/eval_officedocbench.py --latex
 uv run benchmarks/officedocbench/annotate.py
 ```
 
-## Baseline Results
+## Results
 
-DocParse v0.3.0 (deterministic AILANG parsers, no AI), 59 files:
+**Run date**: 2026-03-20
 
-| Metric | Score |
-|--------|-------|
-| **Composite** | **96.6%** |
-| Feature Detection | 94.9% |
-| Structural Recall | 97.5% |
-| Text Jaccard | 95.0% |
-| Element Count | 98.3% |
-| Metadata | 98.3% |
+### Composite Scores
 
-Per-format: DOCX 98.2%, PPTX 97.2%, XLSX 95.8%, ODT 96.7%, ODP 100%, ODS 100%, EPUB 100%, HTML 80.0%, CSV 100%, MD 100%.
+| Tool | Version | Composite | Feat. Det. | Struct. Recall | Text Jaccard | Elem. Count | Metadata | Formats |
+|------|---------|-----------|------------|----------------|--------------|-------------|----------|---------|
+| **DocParse** | v0.3.0 (AILANG) | **96.6%** | 94.9% | 97.5% | 95.0% | 98.3% | 98.3% | 10 |
+| Unstructured | v0.21.5 | 63.4% | 62.4% | 63.1% | 86.6% | 67.0% | 15.2% | 3 |
+| Docling | v2.80.0 | 63.4% | 62.8% | 64.5% | 82.0% | 69.3% | 15.6% | 3 |
+| LlamaParse | v0.6.94 (cloud) | 53.6% | 55.0% | 55.8% | 78.5% | 39.2% | 15.2% | 3 |
+
+DocParse evaluated on all 59 files (10 formats). Competitors evaluated on 33 files (DOCX/PPTX/XLSX only — they don't support ODT/ODP/ODS/EPUB/HTML/CSV/MD).
+
+### Per-Format Breakdown
+
+| Format | DocParse | Unstructured | Docling | LlamaParse |
+|--------|----------|--------------|---------|------------|
+| DOCX | 98.2% (19) | 62.0% (19) | 57.9% (18) | 48.3% (19) |
+| PPTX | 97.2% (8) | 69.1% (8) | 71.1% (8) | 66.5% (8) |
+| XLSX | 95.8% (6) | 60.1% (6) | 69.7% (6) | 53.2% (6) |
+| ODT | 96.7% (6) | — | — | — |
+| ODP | 100% (2) | — | — | — |
+| ODS | 100% (4) | — | — | — |
+| EPUB | 100% (3) | — | — | — |
+| HTML | 80.0% (5) | — | — | — |
+| CSV | 100% (2) | — | — | — |
+| MD | 100% (3) | — | — | — |
+
+### Feature Detection Heatmap
+
+| Feature | DocParse | Unstructured | Docling | LlamaParse |
+|---------|----------|--------------|---------|------------|
+| headings | 20/21 | 10/11 | 10/11 | 8/11 |
+| tables | 35/36 | 12/15 | 11/14 | 12/15 |
+| **track_changes** | **3/3** | 0/3 | 0/3 | 0/3 |
+| **comments** | **1/1** | 0/1 | 0/1 | 0/1 |
+| **headers_footers** | **3/3** | 1/2 | 0/2 | 0/2 |
+| **text_boxes** | **2/2** | 0/2 | 0/2 | 0/2 |
+| images | 8/9 | 0/4 | 2/4 | 0/4 |
+| lists | 12/14 | 2/2 | 1/2 | 2/2 |
+| sheets | 4/5 | 0/1 | 0/1 | 0/1 |
+
+No competitor extracts track changes, comments, text boxes, or headers/footers — these structural features are DocParse's unique advantage.
 
 ### Known Gaps (Stretch Goals)
 
