@@ -680,8 +680,14 @@ elements, _ := uc.Partition(ctx, "report.docx")</code></pre>
 <script src="vendor/firebase/firebase-auth-compat.js"></script>
 <script src="js/firebase-app.js"></script>
 <script src="js/components.js"></script>
+<script>window.Prism = window.Prism || {}; Prism.manual = true;</script>
 <script src="js/prism.min.js"></script>
 <script>
+// Highlight ALL code blocks (including hidden panels)
+document.querySelectorAll('pre code[class*="language-"]').forEach(function(el) {
+  Prism.highlightElement(el);
+});
+
 var API_BASE = 'https://ailang-dev-docparse-api-ejjw6zt3bq-ew.a.run.app';
 
 function tryEndpoint(method, path, btn) {
@@ -712,6 +718,8 @@ function switchLang(tab, group) {
   panels.forEach(function(p) {
     p.classList.toggle('active', p.getAttribute('data-lang') === lang);
   });
+  // Re-highlight newly visible code blocks
+  if (typeof Prism !== 'undefined') Prism.highlightAll();
 }
 </script>
 </body>
