@@ -1,0 +1,93 @@
+{
+  "file": "challenge/challenge_complex.html",
+  "format": "html",
+  "source": "generated",
+  "verified": true,
+  "features": {
+    "text": {
+      "paragraph_count": 3,
+      "total_words": 35,
+      "key_phrases": [
+        "Report Title",
+        "Executive summary paragraph"
+      ]
+    },
+    "headings": {
+      "present": true,
+      "count": 3,
+      "by_level": {
+        "1": 1,
+        "2": 2,
+        "3": 1
+      }
+    },
+    "tables": {
+      "present": true,
+      "count": 1,
+      "total_rows": 2,
+      "has_merged_cells": false
+    },
+    "track_changes": null,
+    "comments": null,
+    "headers_footers": null,
+    "footnotes_endnotes": null,
+    "speaker_notes": null,
+    "text_boxes": null,
+    "images": {
+      "present": true,
+      "count": 1
+    },
+    "lists": {
+      "present": true,
+      "count": 2
+    },
+    "metadata": {
+      "title": "Complex HTML Document",
+      "author": "Test Author",
+      "created": "",
+      "modified": ""
+    },
+    "sheets": null
+  },
+  "full_text_words": [
+    "1",
+    "50k",
+    "65k",
+    "action",
+    "all",
+    "are",
+    "chart",
+    "check",
+    "complex",
+    "counts",
+    "data",
+    "document",
+    "executive",
+    "figures",
+    "growth",
+    "html",
+    "important",
+    "items",
+    "metric",
+    "notes",
+    "numbers",
+    "paragraph",
+    "plan",
+    "preliminary",
+    "q1",
+    "q2",
+    "q3",
+    "report",
+    "revenue",
+    "review",
+    "section",
+    "showing",
+    "strategy",
+    "summary",
+    "title",
+    "trend",
+    "user",
+    "users",
+    "verify"
+  ]
+}

@@ -110,6 +110,20 @@ Old designs that have been superseded or abandoned.
 - CI/CD trigger for docparse repo pushes
 - [Design Doc](planned/v0_8_0/v0_8_0_api_keys_cloud_deployment.md)
 
+### v0.9.0 — SDKs & Website `PLANNED`
+- Python, JavaScript/TypeScript, Go client SDKs
+- Static website with dashboard
+- [SDKs Design](planned/v0_9_0/v0_9_0_sdks.md)
+- [Website Design](planned/v0_9_0/v0_9_0_website.md)
+
+### v0.10.0 — Quarto Integration `PLANNED`
+- QMD generator: Block ADT → Quarto Markdown with YAML front matter
+- Two rendering engines: AILANG (fast/lightweight) vs Quarto (publication-quality)
+- CLI: `--convert output.qmd` and `--via quarto` flag
+- API: QMD output endpoint + optional server-side Quarto rendering
+- Workflows: Office → PDF, spreadsheet → report, multi-doc book assembly
+- [Design Doc](planned/v0_10_0/v0_10_0_quarto_integration.md)
+
 ## Guidelines
 
 1. **Before Implementation**: Create design doc in `planned/vX_Y_Z/`

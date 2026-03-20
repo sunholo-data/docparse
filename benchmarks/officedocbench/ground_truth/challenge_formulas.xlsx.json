@@ -1,0 +1,65 @@
+{
+  "file": "challenge/challenge_formulas.xlsx",
+  "format": "xlsx",
+  "source": "generated (openpyxl)",
+  "verified": true,
+  "features": {
+    "text": {
+      "paragraph_count": 0,
+      "total_words": 20,
+      "key_phrases": [
+        "Financial Summary FY2026"
+      ]
+    },
+    "headings": null,
+    "tables": {
+      "present": true,
+      "count": 2,
+      "total_rows": 6,
+      "has_merged_cells": true
+    },
+    "track_changes": null,
+    "comments": null,
+    "headers_footers": null,
+    "footnotes_endnotes": null,
+    "speaker_notes": null,
+    "text_boxes": null,
+    "images": {
+      "present": false,
+      "count": 0
+    },
+    "metadata": {
+      "title": "",
+      "author": "",
+      "created": "",
+      "modified": ""
+    },
+    "sheets": {
+      "present": true,
+      "names": [
+        "Revenue",
+        "Employees"
+      ]
+    },
+    "lists": null
+  },
+  "full_text_words": [
+    "alice",
+    "bob",
+    "department",
+    "employees",
+    "engineering",
+    "expenses",
+    "financial",
+    "fy2026",
+    "name",
+    "profit",
+    "q1",
+    "q2",
+    "quarter",
+    "revenue",
+    "sales",
+    "summary",
+    "total"
+  ]
+}

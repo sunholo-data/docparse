@@ -1,0 +1,87 @@
+{
+  "file": "challenge/challenge_footnotes.docx",
+  "format": "docx",
+  "source": "generated (python-docx)",
+  "verified": true,
+  "features": {
+    "text": {
+      "paragraph_count": 3,
+      "total_words": 20,
+      "key_phrases": [
+        "Document with Footnotes"
+      ]
+    },
+    "headings": {
+      "present": true,
+      "count": 2,
+      "by_level": {
+        "1": 1,
+        "2": 1
+      }
+    },
+    "tables": {
+      "present": false,
+      "count": 0,
+      "total_rows": 0,
+      "has_merged_cells": false
+    },
+    "track_changes": {
+      "present": false,
+      "count": 0,
+      "types": {},
+      "authors": []
+    },
+    "comments": {
+      "present": false,
+      "count": 0,
+      "authors": [],
+      "texts": []
+    },
+    "headers_footers": {
+      "present": false,
+      "header_count": 0,
+      "footer_count": 0
+    },
+    "footnotes_endnotes": {
+      "present": true,
+      "count": 1
+    },
+    "text_boxes": {
+      "present": false,
+      "count": 0
+    },
+    "images": {
+      "present": false,
+      "count": 0
+    },
+    "lists": {
+      "present": false,
+      "count": 0
+    },
+    "metadata": {
+      "title": "",
+      "author": "",
+      "created": "",
+      "modified": ""
+    },
+    "sheets": null
+  },
+  "full_text_words": [
+    "conclusion",
+    "document",
+    "endnote",
+    "final",
+    "footnote",
+    "footnotes",
+    "has",
+    "on",
+    "paragraph",
+    "reference",
+    "second",
+    "the",
+    "this",
+    "thoughts",
+    "topic",
+    "with"
+  ]
+}

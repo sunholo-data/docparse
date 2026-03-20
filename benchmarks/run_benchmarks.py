@@ -2,11 +2,12 @@
 """DocParse Benchmark Runner.
 
 Usage:
-    uv run benchmarks/run_benchmarks.py --suite office     # Structural (no API, instant)
-    uv run benchmarks/run_benchmarks.py --suite pdf         # PDF extraction (needs AI)
-    uv run benchmarks/run_benchmarks.py --suite all         # Everything
-    uv run benchmarks/run_benchmarks.py --competitors       # Compare to competitors
-    uv run benchmarks/run_benchmarks.py --json              # JSON output
+    uv run benchmarks/run_benchmarks.py --suite office          # Structural regression (no API, instant)
+    uv run benchmarks/run_benchmarks.py --suite officedocbench   # OfficeDocBench formal benchmark
+    uv run benchmarks/run_benchmarks.py --suite pdf              # PDF extraction (needs AI)
+    uv run benchmarks/run_benchmarks.py --suite all              # Everything
+    uv run benchmarks/run_benchmarks.py --competitors            # Compare to competitors
+    uv run benchmarks/run_benchmarks.py --json                   # JSON output
 """
 
 import argparse
@@ -31,6 +32,14 @@ def run_pdf(ai_backend: str = "gemini", json_output: bool = False):
         print("PDF benchmark not yet implemented. Run --suite office first.")
         return
     cmd = ["uv", "run", str(eval_script), "--ai", ai_backend]
+    if json_output:
+        cmd.append("--json")
+    subprocess.run(cmd, cwd=str(REPO_DIR))
+
+
+def run_officedocbench(json_output: bool = False):
+    """Run OfficeDocBench formal benchmark."""
+    cmd = ["uv", "run", str(REPO_DIR / "benchmarks" / "officedocbench" / "eval_officedocbench.py")]
     if json_output:
         cmd.append("--json")
     subprocess.run(cmd, cwd=str(REPO_DIR))
@@ -69,7 +78,7 @@ def run_competitors(competitor: str | None = None, json_output: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="DocParse Benchmark Runner")
-    parser.add_argument("--suite", choices=["office", "pdf", "all"], default="office",
+    parser.add_argument("--suite", choices=["office", "officedocbench", "pdf", "all"], default="office",
                         help="Benchmark suite to run (default: office)")
     parser.add_argument("--ai", default="gemini",
                         help="AI backend for PDF benchmark (default: gemini)")
@@ -86,6 +95,9 @@ def main():
 
     if args.suite in ("office", "all"):
         run_office(args.json)
+
+    if args.suite in ("officedocbench", "all"):
+        run_officedocbench(args.json)
 
     if args.suite in ("pdf", "all"):
         run_pdf(args.ai, args.json)

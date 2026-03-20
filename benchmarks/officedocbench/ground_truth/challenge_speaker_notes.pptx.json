@@ -1,0 +1,79 @@
+{
+  "file": "challenge/challenge_speaker_notes.pptx",
+  "format": "pptx",
+  "source": "generated (python-pptx)",
+  "verified": true,
+  "features": {
+    "text": {
+      "paragraph_count": 3,
+      "total_words": 25,
+      "key_phrases": [
+        "Introduction",
+        "Key Points"
+      ]
+    },
+    "headings": {
+      "present": true,
+      "count": 3,
+      "by_level": {
+        "1": 3
+      }
+    },
+    "tables": null,
+    "track_changes": null,
+    "comments": null,
+    "headers_footers": null,
+    "footnotes_endnotes": null,
+    "speaker_notes": {
+      "present": true,
+      "count": 2
+    },
+    "text_boxes": {
+      "present": false,
+      "count": 0
+    },
+    "images": {
+      "present": false,
+      "count": 0
+    },
+    "lists": {
+      "present": false,
+      "count": 0
+    },
+    "metadata": {
+      "title": "",
+      "author": "",
+      "created": "",
+      "modified": ""
+    },
+    "sheets": null
+  },
+  "full_text_words": [
+    "5",
+    "audience",
+    "emphasize",
+    "greet",
+    "important",
+    "introduction",
+    "items",
+    "key",
+    "minutes",
+    "on",
+    "point",
+    "points",
+    "presentation",
+    "questions",
+    "remember",
+    "slide",
+    "spend",
+    "thank",
+    "the",
+    "this",
+    "three",
+    "to",
+    "two",
+    "warmly",
+    "welcome",
+    "you"
+  ]
+}
