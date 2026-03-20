@@ -571,17 +571,81 @@ client = UnstructuredClient(
       <div class="dp-sdk-card">
         <div class="dp-sdk-name">Python</div>
         <code class="dp-sdk-install">pip install docparse</code>
-        <div class="dp-sdk-desc">Parse files, manage keys, handle pagination. Works with any Python HTTP client.</div>
+        <div class="dp-sdk-desc">Parse files, manage keys, Unstructured-compatible. Typed dataclasses.</div>
       </div>
       <div class="dp-sdk-card">
         <div class="dp-sdk-name">JavaScript / TypeScript</div>
         <code class="dp-sdk-install">npm install @sunholo/docparse</code>
-        <div class="dp-sdk-desc">Browser and Node.js compatible. Fetch-based, zero dependencies.</div>
+        <div class="dp-sdk-desc">Browser + Node.js. Native fetch, zero dependencies, full TypeScript types.</div>
       </div>
       <div class="dp-sdk-card">
         <div class="dp-sdk-name">Go</div>
         <code class="dp-sdk-install">go get github.com/sunholo-data/docparse-go</code>
-        <div class="dp-sdk-desc">Typed client with context support. Native HTTP/2.</div>
+        <div class="dp-sdk-desc">Context support, stdlib HTTP only. Typed structs for all 9 block variants.</div>
+      </div>
+    </div>
+
+    <!-- SDK quick start examples -->
+    <div style="margin-top:20px">
+      <div class="dp-lang-tabs">
+        <span class="dp-lang-tab active" onclick="switchLang(this,'sdk')">Python</span>
+        <span class="dp-lang-tab" onclick="switchLang(this,'sdk')">JavaScript</span>
+        <span class="dp-lang-tab" onclick="switchLang(this,'sdk')">Go</span>
+      </div>
+      <div class="dp-lang-panel active" data-group="sdk" data-lang="Python">
+        <pre><code class="language-python">from docparse import DocParse
+
+client = DocParse(api_key="dp_your_key_here")
+
+result = client.parse("report.docx")
+for block in result.blocks:
+    if block.type == "heading":
+        print(f"H{block.level}: {block.text}")
+    elif block.type == "table":
+        print(f"Table: {len(block.rows)} rows")
+    elif block.type == "change":
+        print(f"{block.change_type} by {block.author}")
+
+# Unstructured migration — one import change:
+from docparse import UnstructuredClient
+client = UnstructuredClient(server_url="https://ailang-dev-docparse-api-...")
+elements = client.general.partition(file="report.docx")</code></pre>
+      </div>
+      <div class="dp-lang-panel" data-group="sdk" data-lang="JavaScript">
+        <pre><code class="language-javascript">import { DocParse } from '@sunholo/docparse';
+
+const client = new DocParse({ apiKey: 'dp_your_key_here' });
+
+const result = await client.parse('report.docx');
+for (const block of result.blocks) {
+  if (block.type === 'heading') console.log(`H${block.level}: ${block.text}`);
+  if (block.type === 'table') console.log(`Table: ${block.rows?.length} rows`);
+  if (block.type === 'change') console.log(`${block.changeType} by ${block.author}`);
+}
+
+// Unstructured migration — one import change:
+import { UnstructuredClient } from '@sunholo/docparse';
+const uc = new UnstructuredClient({ serverUrl: 'https://ailang-dev-docparse-api-...' });
+const elements = await uc.general.partition({ file: 'report.docx' });</code></pre>
+      </div>
+      <div class="dp-lang-panel" data-group="sdk" data-lang="Go">
+        <pre><code class="language-go">client := docparse.New("dp_your_key_here")
+
+result, err := client.Parse(ctx, "report.docx")
+for _, block := range result.Blocks {
+    switch block.Type {
+    case "heading":
+        fmt.Printf("H%d: %s\n", block.Level, block.Text)
+    case "table":
+        fmt.Printf("Table: %d rows\n", len(block.Rows))
+    case "change":
+        fmt.Printf("%s by %s\n", block.ChangeType, block.Author)
+    }
+}
+
+// Unstructured migration:
+uc := docparse.NewUnstructuredClient("https://ailang-dev-docparse-api-...")
+elements, _ := uc.Partition(ctx, "report.docx")</code></pre>
       </div>
     </div>
   </section>
