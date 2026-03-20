@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Benchmarks — DocParse</title>
 <link rel="icon" type="image/svg+xml" href="img/docparse-logo.svg">
-<meta name="description" content="DocParse benchmarks — 100% structural recall on 53 Office files. Competitor comparison vs Unstructured, Docling, LlamaParse.">
+<meta name="description" content="OfficeDocBench — DocParse scores 96.6% on 59 Office files across 10 formats. Competitors: Unstructured 63.4%, Docling 63.4%, LlamaParse 53.6%. Run date: 2026-03-20.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -178,12 +178,12 @@
   <!-- Top stats -->
   <div class="dp-bench-stats reveal">
     <div class="dp-bench-stat">
-      <div class="dp-bench-stat-val">53</div>
-      <div class="dp-bench-stat-lbl">Golden Files</div>
+      <div class="dp-bench-stat-val">59</div>
+      <div class="dp-bench-stat-lbl">Test Files</div>
     </div>
     <div class="dp-bench-stat">
-      <div class="dp-bench-stat-val">100%</div>
-      <div class="dp-bench-stat-lbl">Structural Recall</div>
+      <div class="dp-bench-stat-val">96.6%</div>
+      <div class="dp-bench-stat-lbl">Composite Score</div>
     </div>
     <div class="dp-bench-stat">
       <div class="dp-bench-stat-val">10</div>
@@ -202,49 +202,46 @@
 
     <div class="dp-bench-callout">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <div><strong>OfficeDocBench</strong> is the first benchmark focused on structural Office parsing quality. 53 real-world files across 10 formats, checking 8 structural properties that competitors miss entirely.</div>
+      <div><strong>OfficeDocBench</strong> is the first benchmark focused on structural Office parsing quality. 59 test files across 10 formats, scored on 5 metrics: feature detection, structural recall, text Jaccard, element count accuracy, and metadata extraction. <em>Run date: 2026-03-20.</em></div>
     </div>
 
-    <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin:20px 0 12px">Format Coverage</h3>
-    <div class="dp-format-breakdown">
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">DOCX</div><div class="dp-format-chip-count">12 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">PPTX</div><div class="dp-format-chip-count">6 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">XLSX</div><div class="dp-format-chip-count">6 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">HTML</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">Markdown</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">CSV</div><div class="dp-format-chip-count">4 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODT</div><div class="dp-format-chip-count">3 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODP/ODS</div><div class="dp-format-chip-count">4 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">EPUB</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">100%</div></div>
-      <div class="dp-format-chip"><div class="dp-format-chip-ext">TSV</div><div class="dp-format-chip-count">3 files</div><div class="dp-format-chip-status">100%</div></div>
-    </div>
-
-    <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin:20px 0 12px">Structural Checks</h3>
-    <p>Each file is tested against these structural properties:</p>
+    <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin:20px 0 12px">Composite Scores</h3>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <table class="dp-results-table">
       <thead>
-        <tr><th>Check</th><th>Description</th><th>Result</th></tr>
+        <tr><th>Tool</th><th>Version</th><th>Composite</th><th>Feat. Det.</th><th>Struct. Recall</th><th>Text Jaccard</th><th>Metadata</th><th>Formats</th></tr>
       </thead>
       <tbody>
-        <tr><td>Tables</td><td>Table detection, row/column counts, cell content</td><td class="pass">PASS</td></tr>
-        <tr><td>Merged Cells</td><td>Colspan/rowspan preservation</td><td class="pass">PASS</td></tr>
-        <tr><td>Track Changes</td><td>Insert/delete change detection with author</td><td class="pass">PASS</td></tr>
-        <tr><td>Comments</td><td>Comment text + author attribution</td><td class="pass">PASS</td></tr>
-        <tr><td>Headers/Footers</td><td>Separate header/footer block extraction</td><td class="pass">PASS</td></tr>
-        <tr><td>Text Boxes</td><td>Floating text box content extraction</td><td class="pass">PASS</td></tr>
-        <tr><td>Images</td><td>Embedded image detection + path references</td><td class="pass">PASS</td></tr>
-        <tr><td>Metadata</td><td>Title, author, created/modified dates</td><td class="pass">PASS</td></tr>
-        <tr><td>Text Jaccard</td><td>Full-text similarity &ge; 0.95</td><td class="pass">PASS</td></tr>
+        <tr><td style="font-weight:600">DocParse</td><td>v0.3.0 (AILANG)</td><td class="pass">96.6%</td><td class="pass">94.9%</td><td class="pass">97.5%</td><td class="pass">95.0%</td><td class="pass">98.3%</td><td class="pass">10</td></tr>
+        <tr><td>Unstructured</td><td>v0.21.5</td><td>63.4%</td><td>62.4%</td><td>63.1%</td><td>86.6%</td><td class="fail">15.2%</td><td>3</td></tr>
+        <tr><td>Docling</td><td>v2.80.0</td><td>63.4%</td><td>62.8%</td><td>64.5%</td><td>82.0%</td><td class="fail">15.6%</td><td>3</td></tr>
+        <tr><td>LlamaParse</td><td>v0.6.94 (cloud)</td><td>53.6%</td><td>55.0%</td><td>55.8%</td><td>78.5%</td><td class="fail">15.2%</td><td>3</td></tr>
       </tbody>
     </table>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted)">DocParse evaluated on all 59 files (10 formats). Competitors evaluated on 33 files (DOCX/PPTX/XLSX only &mdash; they don't support ODT/ODP/ODS/EPUB/HTML/CSV/MD).</p>
+
+    <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin:20px 0 12px">Per-Format Breakdown</h3>
+    <div class="dp-format-breakdown">
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">DOCX</div><div class="dp-format-chip-count">19 files</div><div class="dp-format-chip-status">98.2%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">PPTX</div><div class="dp-format-chip-count">8 files</div><div class="dp-format-chip-status">97.2%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">XLSX</div><div class="dp-format-chip-count">6 files</div><div class="dp-format-chip-status">95.8%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODT</div><div class="dp-format-chip-count">6 files</div><div class="dp-format-chip-status">96.7%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODP</div><div class="dp-format-chip-count">2 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">ODS</div><div class="dp-format-chip-count">4 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">EPUB</div><div class="dp-format-chip-count">3 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">HTML</div><div class="dp-format-chip-count">5 files</div><div class="dp-format-chip-status">80.0%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">CSV</div><div class="dp-format-chip-count">2 files</div><div class="dp-format-chip-status">100%</div></div>
+      <div class="dp-format-chip"><div class="dp-format-chip-ext">MD</div><div class="dp-format-chip-count">3 files</div><div class="dp-format-chip-status">100%</div></div>
+    </div>
   </section>
 
   <hr class="dp-divider">
 
   <!-- Competitor Comparison -->
   <section class="dp-bench-section reveal">
-    <h2>Competitor Comparison</h2>
-    <p>Office structural features that competitors miss:</p>
+    <h2>Feature Detection Heatmap</h2>
+    <p>Measured feature detection rates from OfficeDocBench (2026-03-20). Fractions show files where the feature was correctly detected out of files where it should be present.</p>
 
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <table class="dp-results-table">
@@ -252,19 +249,21 @@
         <tr><th>Feature</th><th>DocParse</th><th>Unstructured</th><th>Docling</th><th>LlamaParse</th></tr>
       </thead>
       <tbody>
-        <tr><td>Track Changes</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
-        <tr><td>Merged Cells</td><td class="pass">Full</td><td class="partial">Partial</td><td class="partial">Partial</td><td class="fail">None</td></tr>
-        <tr><td>Comments</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
-        <tr><td>Headers/Footers</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
-        <tr><td>Text Boxes</td><td class="pass">Full</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
-        <tr><td>Footnotes/Endnotes</td><td class="pass">Full</td><td class="fail">None</td><td class="partial">Partial</td><td class="fail">None</td></tr>
-        <tr><td>ODT/ODP/ODS</td><td class="pass">Native</td><td class="fail">None</td><td class="fail">None</td><td class="fail">None</td></tr>
-        <tr><td>EPUB</td><td class="pass">Native</td><td class="partial">Basic</td><td class="fail">None</td><td class="fail">None</td></tr>
-        <tr><td>Deterministic</td><td class="pass">Yes</td><td class="pass">Yes</td><td class="pass">Yes</td><td class="fail">AI-only</td></tr>
-        <tr><td>Zero Dependencies</td><td class="pass">Yes</td><td class="fail">Python</td><td class="fail">Python</td><td class="fail">Cloud</td></tr>
+        <tr><td>Headings</td><td class="pass">20/21</td><td>10/11</td><td>10/11</td><td>8/11</td></tr>
+        <tr><td>Tables</td><td class="pass">35/36</td><td>12/15</td><td>11/14</td><td>12/15</td></tr>
+        <tr><td>Track Changes</td><td class="pass">3/3</td><td class="fail">0/3</td><td class="fail">0/3</td><td class="fail">0/3</td></tr>
+        <tr><td>Comments</td><td class="pass">1/1</td><td class="fail">0/1</td><td class="fail">0/1</td><td class="fail">0/1</td></tr>
+        <tr><td>Headers/Footers</td><td class="pass">3/3</td><td class="partial">1/2</td><td class="fail">0/2</td><td class="fail">0/2</td></tr>
+        <tr><td>Text Boxes</td><td class="pass">2/2</td><td class="fail">0/2</td><td class="fail">0/2</td><td class="fail">0/2</td></tr>
+        <tr><td>Images</td><td class="pass">8/9</td><td class="fail">0/4</td><td class="partial">2/4</td><td class="fail">0/4</td></tr>
+        <tr><td>Lists</td><td class="pass">12/14</td><td>2/2</td><td class="partial">1/2</td><td>2/2</td></tr>
+        <tr><td>Sheet Names</td><td class="pass">4/5</td><td class="fail">0/1</td><td class="fail">0/1</td><td class="fail">0/1</td></tr>
+        <tr><td>Speaker Notes</td><td class="fail">0/1</td><td class="fail">0/1</td><td class="fail">0/1</td><td class="fail">0/1</td></tr>
+        <tr><td>Footnotes</td><td class="fail">0/1</td><td class="fail">0/1</td><td class="fail">0/1</td><td class="fail">0/1</td></tr>
       </tbody>
     </table>
     </div>
+    <p style="font-size:12px;color:var(--text-muted)">No competitor extracts track changes, comments, text boxes, or headers/footers &mdash; these structural features are DocParse's unique advantage. Competitors only support DOCX/PPTX/XLSX; DocParse also covers ODT, ODP, ODS, EPUB, HTML, CSV, and Markdown.</p>
   </section>
 
   <hr class="dp-divider">
@@ -296,19 +295,20 @@
   <!-- Run It Yourself -->
   <section class="dp-bench-section reveal">
     <h2>Run the Benchmarks</h2>
-    <pre><code class="language-bash"># Quick smoke test (~15 seconds)
+    <pre><code class="language-bash"># OfficeDocBench — formal benchmark with scoring (instant, uses golden files)
+uv run benchmarks/officedocbench/eval_officedocbench.py
+
+# OfficeDocBench — with competitor comparison
+uv run benchmarks/officedocbench/eval_officedocbench.py --all
+
+# Quick regression test (~15 seconds)
 bash benchmarks/quick_check.sh
 
-# Full 53-file Office structural benchmark (~10 minutes)
+# Full Office structural regression (~10 minutes)
 uv run benchmarks/run_benchmarks.py --suite office
 
 # PDF benchmark (needs AI model)
 uv run benchmarks/run_benchmarks.py --suite pdf --ai gemini-2.5-flash
-
-# Competitor comparison
-uv run benchmarks/run_benchmarks.py --competitors              # all competitors
-uv run benchmarks/run_benchmarks.py --competitors docling      # just Docling
-uv run benchmarks/run_benchmarks.py --competitors llamaparse   # just LlamaParse
 
 # Regenerate golden outputs after parser changes
 bash benchmarks/generate_golden.sh</code></pre>
