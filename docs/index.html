@@ -36,7 +36,7 @@
         <span class="dp-stat-lbl">parse formats</span>
       </div>
       <div class="dp-stat-chip">
-        <span class="dp-stat-val">8</span>
+        <span class="dp-stat-val">9</span>
         <span class="dp-stat-lbl">generate formats</span>
       </div>
       <div class="dp-stat-chip">
@@ -190,6 +190,11 @@
         <div class="dp-format-ext">.epub</div>
         <div class="dp-format-method">Native</div>
       </div>
+      <div class="dp-format-card dp-format--text">
+        <div class="dp-format-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="14" r="3"/></svg></div>
+        <div class="dp-format-ext">.qmd</div>
+        <div class="dp-format-method">Generate only</div>
+      </div>
 
       <!-- AI-powered -->
       <div class="dp-format-card dp-format--ai">
@@ -218,6 +223,7 @@
       <span class="dp-legend-item"><span class="dp-legend-dot dp-legend--office"></span> Deterministic (XML parsing)</span>
       <span class="dp-legend-item"><span class="dp-legend-dot dp-legend--text"></span> Native (text parsing)</span>
       <span class="dp-legend-item"><span class="dp-legend-dot dp-legend--ai"></span> AI-powered (pluggable model)</span>
+      <span class="dp-legend-item"><span class="dp-legend-dot dp-legend--text"></span> Generate only (output format)</span>
     </div>
   </section>
 
@@ -748,7 +754,7 @@
       <div class="coming-soon-item">
         <span class="coming-soon-badge" style="background:var(--success);color:#fff">v0.10.0</span>
         <div class="feature-name">Quarto Integration</div>
-        <div class="feature-detail">QMD generator: Block ADT to Quarto Markdown. Two rendering engines for publication-quality output from any document.</div>
+        <div class="feature-detail">QMD generator: Block ADT to Quarto Markdown. <strong>Generate &amp; convert to .qmd — done.</strong> Next: server-side Quarto rendering via existing Cloud Run service for publication-quality PDF/HTML/DOCX output.</div>
       </div>
     </div>
   </section>

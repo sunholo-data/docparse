@@ -13,7 +13,9 @@ design_docs/
 │   ├── v0_2_0/              # PDF pipeline improvements
 │   ├── v0_4_0/              # Go binary compilation
 │   ├── v0_5_0/              # Ecosystem & competitor benchmarks
-│   └── v0_8_0/              # API keys & Cloud deployment
+│   ├── v0_8_0/              # API keys & Cloud deployment
+│   ├── v0_11_0/             # User-defined structured extraction
+│   └── v0_12_0/             # AILANG package registry integration
 ├── archive/                  # Obsolete/superseded designs
 └── README.md                 # This file
 ```
@@ -123,6 +125,24 @@ Old designs that have been superseded or abandoned.
 - API: QMD output endpoint + optional server-side Quarto rendering
 - Workflows: Office → PDF, spreadsheet → report, multi-doc book assembly
 - [Design Doc](planned/v0_10_0/v0_10_0_quarto_integration.md)
+
+### v0.11.0 — User-Defined Structured Extraction `PLANNED`
+- Users supply a JSON Schema describing what they want extracted
+- Two-stage pipeline: deterministic parse → AI-powered schema extraction
+- Built-in template library (invoice, resume, contract, receipt, form, meeting notes, table)
+- CLI: `--extract --schema`, `--template invoice`, `--hints "..."`
+- API: `POST /api/v1/extract` + template endpoint + batch extraction
+- Competitive moat: JSON Schema (not NL), two-stage (cheaper/more accurate), Office advantage
+- [Design Doc](planned/v0_11_0/v0_11_0_structured_extraction.md)
+
+### v0.12.0 — AILANG Package Registry `PLANNED`
+- Publish DocParse as a versioned AILANG package via the new registry
+- `ailang.pkg` manifest with capability declarations, exports, and metadata
+- Public vs internal module boundary (24 exported, 7 internal)
+- CI/CD publish workflow: type-check → test → benchmark → `ailang pkg publish`
+- Consumers install with `ailang pkg add docparse` and import modules directly
+- Lock file (`ailang.lock`) for reproducible builds
+- [Design Doc](planned/v0_12_0/v0_12_0_package_registry.md)
 
 ## Guidelines
 

@@ -249,7 +249,10 @@ cd docparse
 ./bin/docparse data.csv --convert report.docx
 
 # Markdown to PowerPoint slides
-./bin/docparse notes.md --convert slides.pptx</code></pre>
+./bin/docparse notes.md --convert slides.pptx
+
+# Any format to Quarto Markdown (for Quarto rendering)
+./bin/docparse report.docx --convert report.qmd</code></pre>
 
       <p>Generate documents with AI:</p>
       <pre><code class="language-bash"># Generate a DOCX report from a prompt
@@ -296,7 +299,7 @@ curl http://localhost:8080/api/v1/health
 # {"result":"{\"status\":\"healthy\",\"version\":\"0.7.0\",...}"}
 
 curl http://localhost:8080/api/v1/formats
-# Lists all 13 parse and 8 generate formats</code></pre>
+# Lists all 13 parse and 9 generate formats</code></pre>
 
       <div class="dp-callout">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -387,6 +390,7 @@ ailang run --entry main --caps IO,FS,Env,AI \
           <tr><td>PDF</td><td>AI Required</td><td>Page-by-page extraction via pluggable AI model</td></tr>
           <tr><td>PNG / JPG</td><td>AI Required</td><td>Document image extraction or description</td></tr>
           <tr><td>Audio / Video</td><td>AI Required</td><td>Transcription and content understanding</td></tr>
+          <tr><td>QMD (Quarto)</td><td>Generate only</td><td>Quarto Markdown with YAML front matter, CriticMarkup for track changes, pipe/grid tables</td></tr>
         </tbody>
       </table>
 

@@ -59,7 +59,7 @@ export pure func health() -> string {
     kv("version", js("0.7.0")),
     kv("service", js("docparse")),
     kv("formats_parse", jnum(13.0)),
-    kv("formats_generate", jnum(8.0))
+    kv("formats_generate", jnum(9.0))
   ]))
 }
 
@@ -68,7 +68,7 @@ export pure func health() -> string {
 export pure func formats() -> string {
   encode(jo([
     kv("parse", ja(map(js, ["docx", "pptx", "xlsx", "odt", "odp", "ods", "html", "md", "csv", "epub", "pdf", "png", "jpg"]))),
-    kv("generate", ja(map(js, ["docx", "pptx", "xlsx", "odt", "odp", "ods", "html", "md"]))),
+    kv("generate", ja(map(js, ["docx", "pptx", "xlsx", "odt", "odp", "ods", "html", "md", "qmd"]))),
     kv("ai_required", ja(map(js, ["pdf", "png", "jpg", "gif", "bmp", "tiff"]))),
     kv("status", js("ok"))
   ]))

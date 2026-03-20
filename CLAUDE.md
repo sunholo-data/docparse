@@ -2,7 +2,7 @@ n# CLAUDE.md — DocParse
 
 ## Project Purpose
 
-DocParse is a standalone AILANG module for universal document parsing and generation. It extracts structured content from Office formats (DOCX, PPTX, XLSX, ODT, ODP, ODS, HTML, Markdown, CSV, EPUB) deterministically and from PDFs/images via pluggable AI. It also generates documents in 8 formats from parsed content or AI prompts.
+DocParse is a standalone AILANG module for universal document parsing and generation. It extracts structured content from Office formats (DOCX, PPTX, XLSX, ODT, ODP, ODS, HTML, Markdown, CSV, EPUB) deterministically and from PDFs/images via pluggable AI. It also generates documents in 9 formats (including Quarto Markdown) from parsed content or AI prompts.
 
 This is a production AILANG module, not a demo. Every change must exercise AILANG code paths.
 
@@ -12,7 +12,7 @@ This is a production AILANG module, not a demo. Every change must exercise AILAN
 docparse/
 ├── docparse/              # AILANG modules (keeps docparse/ prefix for imports)
 │   ├── types/document.ail # Block ADT (9 variants)
-│   ├── services/          # 22 service modules (parsers + generators)
+│   ├── services/          # 23 service modules (parsers + generators)
 │   └── main.ail           # CLI entry point
 ├── bin/docparse           # Bash CLI wrapper
 ├── data/test_files/       # 17 real-world test files
@@ -29,6 +29,7 @@ docparse/
 ./bin/docparse input.docx --convert output.html
 ./bin/docparse data.csv --convert report.docx
 ./bin/docparse notes.md --convert slides.pptx
+./bin/docparse report.docx --convert report.qmd
 
 # AI document generation (requires --ai flag and AI capability)
 ailang run --entry main --caps IO,FS,Env,AI --ai gemini-2.5-flash \
