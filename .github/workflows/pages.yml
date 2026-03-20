@@ -31,10 +31,15 @@ jobs:
           cd docs
           bash wasm/download.sh
 
+      - name: Remove gitignore exclusion for WASM (so artifact includes it)
+        run: |
+          sed -i '/docs\/wasm\/ailang.wasm/d' .gitignore
+
       - name: Verify WASM files
         run: |
           ls -lh docs/wasm/
           test -f docs/wasm/ailang.wasm || (echo "WASM binary missing!" && exit 1)
+          echo "Total docs size: $(du -sh docs/ | cut -f1)"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
