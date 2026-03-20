@@ -151,6 +151,43 @@ These tools primarily target PDF extraction for RAG/LLM pipelines. Office suppor
 | Self-hostable | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | No |
 | Contract verification | **Yes** | No | No | No | No | No | No |
 
+### Delivery Channels: API, WASM, AI-Friendly Output
+
+| Capability | DocParse | Apache POI | python-docx etc. | OfficeParser v6 | Unstructured | Docling | LlamaParse | Azure Doc Intel |
+|---|---|---|---|---|---|---|---|---|
+| **REST API** | **Yes** (serve-api) | No (library only) | No (library only) | No (library only) | **Yes** (hosted + self-host) | **Yes** (docling-serve) | **Yes** (cloud only) | **Yes** (cloud only) |
+| **WASM / Browser** | **Yes** (AILANG WASM) | No | No | **Yes** (browser bundle) | No | No | No | No |
+| **JSON output** | **Yes** (Block ADT) | No (Java objects) | No (Python objects) | **Yes** (AST JSON) | **Yes** (elements JSON) | **Yes** (DoclingDocument) | No (Markdown only) | **Yes** |
+| **Markdown output** | **Yes** | No | No | **Yes** (via AST) | No | **Yes** | **Yes** | **Yes** |
+| **Unstructured API compat** | **Yes** (drop-in) | No | No | No | N/A (is Unstructured) | No | No | No |
+| **OpenAPI / Swagger** | **Yes** (auto-generated) | No | No | No | **Yes** | **Yes** (v1 API) | **Yes** | **Yes** |
+| **SDKs** | Python, JS, Go | Java (is the SDK) | Python (is the SDK) | JS/TS (is the SDK) | **Python, JS** | Python | Python, JS | Python, JS, .NET, Java |
+| **Free tier** | **Yes** (20 req/day) | N/A (OSS) | N/A (OSS) | N/A (OSS) | **Yes** (limited) | N/A (OSS) | **Yes** (limited) | Pay-per-use |
+| **Self-host API** | **Yes** (Docker/Cloud Run) | Build your own | Build your own | Build your own | **Yes** (Docker) | **Yes** (docling-serve) | No | No |
+
+### AI-Friendly Output Comparison
+
+The industry is converging on **Markdown + JSON** as the standard AI-friendly output for RAG pipelines. Key requirements:
+
+1. **Structured Markdown** — headings, tables, lists preserved for semantic chunking
+2. **Block-level JSON** — typed content blocks with metadata for programmatic access
+3. **Bounding boxes / coordinates** — for layout-aware chunking (PDF mainly)
+4. **Document hierarchy** — parent-child relationships between blocks
+
+| AI Feature | DocParse | Unstructured | Docling | LlamaParse |
+|---|---|---|---|---|
+| Markdown output | **Yes** | No (text only) | **Yes** | **Yes** (primary) |
+| Typed JSON blocks | **Yes** (9 variants) | **Yes** (element types) | **Yes** (DoclingDocument) | No |
+| Table preservation | **Yes** (structured) | **Yes** (HTML in metadata) | **Yes** | **Yes** (Markdown tables) |
+| Heading hierarchy | **Yes** (levels 1-6) | Partial (Title only) | **Yes** | **Yes** |
+| Document metadata | **Yes** | Partial | Partial | No |
+| Structural features in output | **Yes** (track changes, comments, etc.) | No | No | No |
+| Chunking support | Not built-in | **Yes** (built-in chunker) | **Yes** (hybrid chunker) | Via LlamaIndex |
+
+**DocParse's AI advantage**: We output both JSON (Block ADT with 9 typed variants) and Markdown. The structural features (track changes, comments, sections) give AI systems richer context than flat text. However, we don't have built-in chunking — users do that downstream.
+
+**Industry trend**: Markdown is becoming the lingua franca for document → LLM pipelines. Our Markdown output is solid but competitors like Docling and Unstructured are adding RAG-specific features (chunking, hierarchy metadata, bounding boxes) that we haven't prioritized yet.
+
 ---
 
 ## Gaps to Address (Roadmap Implications)
