@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="img/docparse-logo.svg">
 <meta name="description" content="DocParse: structural document parsing for 15+ formats. Track changes, merged cells, headers/footers — no runtime dependencies for Office formats, pluggable AI for PDFs. Powered by AILANG.">
 <meta property="og:title" content="DocParse — Universal Document Parsing">
-<meta property="og:description" content="Parse DOCX, PPTX, XLSX, PDF, EPUB, ODT, and more. Deterministic Office parsing + pluggable AI for PDFs. 99.8% recall vs Unstructured.">
+<meta property="og:description" content="Parse DOCX, PPTX, XLSX, PDF, EPUB, ODT, and more. Deterministic Office parsing + pluggable AI for PDFs. 96.6% on OfficeDocBench vs Unstructured 63%, Docling 63%, LlamaParse 54%.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.sunholo.com/docparse">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,8 +40,8 @@
         <span class="dp-stat-lbl">generate formats</span>
       </div>
       <div class="dp-stat-chip">
-        <span class="dp-stat-val">100%</span>
-        <span class="dp-stat-lbl">structural recall</span>
+        <span class="dp-stat-val">96.6%</span>
+        <span class="dp-stat-lbl">OfficeDocBench</span>
       </div>
       <div class="dp-stat-chip">
         <span class="dp-stat-val">0</span>
@@ -479,20 +479,20 @@
     <div class="benchmark">
       <div class="stats-row">
         <div class="stat">
-          <div class="stat-value dp-blue">99.8%</div>
-          <div class="stat-label">DocParse recall</div>
+          <div class="stat-value dp-blue">96.6%</div>
+          <div class="stat-label">DocParse composite</div>
         </div>
         <div class="stat">
-          <div class="stat-value muted">95.3%</div>
-          <div class="stat-label">Unstructured recall</div>
+          <div class="stat-value muted">63.4%</div>
+          <div class="stat-label">Unstructured</div>
         </div>
         <div class="stat">
-          <div class="stat-value dp-blue">100%</div>
-          <div class="stat-label">Office golden (18/18)</div>
+          <div class="stat-value muted">63.4%</div>
+          <div class="stat-label">Docling</div>
         </div>
         <div class="stat">
-          <div class="stat-value dp-blue">0.871</div>
-          <div class="stat-label">Table TEDS (OmniDocBench)</div>
+          <div class="stat-value muted">53.6%</div>
+          <div class="stat-label">LlamaParse</div>
         </div>
       </div>
 
@@ -500,76 +500,76 @@
       <table class="compare-table">
         <thead>
           <tr>
-            <th>Capability</th>
-            <th class="dp-col">DocParse</th>
-            <th>Unstructured</th>
-            <th>Docling</th>
-            <th>LlamaParse</th>
+            <th>Metric</th>
+            <th class="dp-col">DocParse <span style="font-weight:400;font-size:10px">v0.3.0</span></th>
+            <th>Unstructured <span style="font-weight:400;font-size:10px">v0.21.5</span></th>
+            <th>Docling <span style="font-weight:400;font-size:10px">v2.80.0</span></th>
+            <th>LlamaParse <span style="font-weight:400;font-size:10px">v0.6.94</span></th>
           </tr>
         </thead>
         <tbody>
           <tr>
+            <td>Composite score</td>
+            <td class="win">96.6%</td>
+            <td>63.4%</td>
+            <td>63.4%</td>
+            <td>53.6%</td>
+          </tr>
+          <tr>
             <td>Track changes</td>
-            <td class="win">Structured</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-          </tr>
-          <tr>
-            <td>Merged cells</td>
-            <td class="win">Preserved</td>
-            <td class="partial">Atomized</td>
-            <td class="partial">Partial</td>
-            <td class="partial">Partial</td>
-          </tr>
-          <tr>
-            <td>Headers &amp; footers</td>
-            <td class="win">Semantic</td>
-            <td class="partial">Flat text</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-          </tr>
-          <tr>
-            <td>Text boxes / shapes</td>
-            <td class="win">Extracted</td>
-            <td class="partial">Partial</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
+            <td class="win">3/3</td>
+            <td class="no">0/3</td>
+            <td class="no">0/3</td>
+            <td class="no">0/3</td>
           </tr>
           <tr>
             <td>Comments</td>
-            <td class="win">Interleaved</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
+            <td class="win">1/1</td>
+            <td class="no">0/1</td>
+            <td class="no">0/1</td>
+            <td class="no">0/1</td>
           </tr>
           <tr>
-            <td>ODF formats</td>
-            <td class="win">Native</td>
-            <td class="partial">Via LibreOffice</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
+            <td>Headers &amp; footers</td>
+            <td class="win">3/3</td>
+            <td class="partial">1/2</td>
+            <td class="no">0/2</td>
+            <td class="no">0/2</td>
           </tr>
           <tr>
-            <td>EPUB</td>
-            <td class="win">Native</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
+            <td>Text boxes</td>
+            <td class="win">2/2</td>
+            <td class="no">0/2</td>
+            <td class="no">0/2</td>
+            <td class="no">0/2</td>
           </tr>
           <tr>
-            <td>No runtime deps (Office)</td>
-            <td class="win">Yes</td>
-            <td class="no">Python + 20 libs</td>
-            <td class="no">Python + 15 libs</td>
+            <td>Tables</td>
+            <td class="win">35/36</td>
+            <td>12/15</td>
+            <td>11/14</td>
+            <td>12/15</td>
+          </tr>
+          <tr>
+            <td>Images</td>
+            <td class="win">8/9</td>
+            <td class="no">0/4</td>
+            <td class="partial">2/4</td>
+            <td class="no">0/4</td>
+          </tr>
+          <tr>
+            <td>Formats supported</td>
+            <td class="win">10</td>
+            <td>3</td>
+            <td>3</td>
+            <td>3</td>
+          </tr>
+          <tr>
+            <td>Runtime dependencies</td>
+            <td class="win">None</td>
+            <td class="no">Python + libs</td>
+            <td class="no">Python + PyTorch</td>
             <td class="no">Cloud API</td>
-          </tr>
-          <tr>
-            <td>Contract verification</td>
-            <td class="win">63 contracts, Z3</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
           </tr>
         </tbody>
       </table>
@@ -577,8 +577,8 @@
     </div>
 
     <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 10px; line-height: 1.6;">
-      Office structural benchmark: 18 golden outputs at 100% baseline.<br>
-      OmniDocBench PDF evaluation: Text ED 0.183, Table TEDS 0.871, Reading Order ED 0.141 (Gemini 2.5 Flash).
+      <a href="benchmarks.html" style="color:var(--dp-blue)">OfficeDocBench</a>: 59 test files, 10 formats, 5 scoring metrics. Run date: 2026-03-20.<br>
+      Competitors evaluated on DOCX/PPTX/XLSX only (33 files) &mdash; they don't support ODF, EPUB, HTML, CSV, or Markdown.
     </p>
   </section>
 
@@ -741,14 +741,14 @@
         <div class="feature-detail">Pre-built Go binary. Single executable for macOS, Linux, and Windows. No AILANG CLI installation required.</div>
       </div>
       <div class="coming-soon-item">
-        <span class="coming-soon-badge">v0.5.0</span>
-        <div class="feature-name">OfficeDocBench</div>
-        <div class="feature-detail">First-of-its-kind structural Office benchmark. 40+ test files covering track changes, merged cells, headers/footers, and more.</div>
+        <span class="coming-soon-badge" style="background:var(--success);color:#fff">v0.9.0</span>
+        <div class="feature-name">SDKs &amp; Website</div>
+        <div class="feature-detail">Python, JavaScript/TypeScript, and Go client SDKs. Static website with dashboard for API key management.</div>
       </div>
       <div class="coming-soon-item">
-        <span class="coming-soon-badge">v0.6.0</span>
-        <div class="feature-name">Document Generation</div>
-        <div class="feature-detail">Bidirectional pipeline: Block ADT to DOCX, PPTX, XLSX, HTML. AI-generated documents from natural language prompts.</div>
+        <span class="coming-soon-badge" style="background:var(--success);color:#fff">v0.10.0</span>
+        <div class="feature-name">Quarto Integration</div>
+        <div class="feature-detail">QMD generator: Block ADT to Quarto Markdown. Two rendering engines for publication-quality output from any document.</div>
       </div>
     </div>
   </section>
